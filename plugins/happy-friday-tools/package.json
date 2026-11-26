@@ -1,0 +1,11 @@
+{
+  "name": "@happy-friday/dsh-tool-approval",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "description": "Happy Friday 工具审批策略插件（DeepSeek Harness 0.2.x）",
+  "peerDependencies": {
+    "@deepseek-ai/cordis": ">=4.2.0-alpha.1"
+  }
+}

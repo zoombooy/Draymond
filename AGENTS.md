@@ -64,6 +64,13 @@ npm run electron:build:mac
 - Agent 文件系统权限白名单见 `agent/permissions.js`：仅 `/SKILL/**`、`/memories/**`、`/SANDBOX{,/**}` 可写；LLM 生成的文件只允许落在 SANDBOX
 - 跨会话记忆是文件系统实现（/memories/*.md），Agent 通过 edit_file 写入即持久化，无数据库同步
 
+### Harness 子系统（src-electron/harness/ + plugins/）
+
+- 依赖版本：`@deepseek-ai/dsh 0.2.3-alpha.2`（Node >= 24.22.3）。升级前先读官方 upgrade guide，并运行 `npm run harness:migrate -- <dataDir>` 清理 0.1.x patch。
+- 工具清单只有一处真相：`toolBridge.js` 的 `buildHarnessToolManifest()` 从工具注册表生成 `mcp__happy-friday__*` 名称与审批工具列表；不要在其他文件里另行拼接。
+- 审批策略插件位于 `plugins/happy-friday-tools/`，由 `harness/index.js` 以绝对路径注入 patch；不要再向 DSH home 复制策略文件。
+- 新增 Harness patch 条目时注意 0.2.x 的组合顺序：bundles → profile patch → home patch → `--patch` overlay。
+
 ### RAG 子系统（src-electron/rag/）
 
 流水线：loaders（多格式解析）→ chunkers（父子分块）→ embeddings → vectorstore（Zvec）。多知识库向量统一存储，按 `kb_type` 区分，勿破坏该约定。
@@ -88,6 +95,7 @@ sql.js 内存库 + 防抖落盘。**每条写操作（INSERT/UPDATE/DELETE）之
 4. 原生模块（sharp、@zvec、@deepseek-ai/*）是平台相关 optionalDependencies，不能跨架构打包；改动后跑 `node scripts/verify-packaged-native-modules.mjs x64`
 5. `preload.cjs` 必须保持 CJS（.cjs 后缀），主进程/渲染进程均为 ESM（`"type": "module"`）
 6. 不要在渲染进程代码里引用 Node API 或 electron 模块
+7. `@deepseek-ai/dsh-invariants`、`/invariant` 子路径、`dsh-experimental-schedule-bundle` 在 0.2.x 已移除，patch 中不得再引用
 
 ## 完成任务前
 

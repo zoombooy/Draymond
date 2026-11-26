@@ -16,13 +16,18 @@ import {
   releaseLocalMcpServer
 } from '../agent/mcp.js'
 import { listRegisteredTools } from '../agent/tools/registry.js'
+import {
+  MCP_SERVER_NAME as TOOL_BRIDGE_SERVER_NAME,
+  buildHarnessToolManifest,
+  buildApprovalPolicyConfig
+} from './toolBridge.js'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const HARNESS_CONSUMER = 'deepseek-harness'
 const HARNESS_PROVIDER = 'happy-friday'
 const HARNESS_CREDENTIAL = 'HAPPY_FRIDAY_HARNESS_API_KEY'
-const MCP_SERVER_NAME = 'happy-friday'
+const MCP_SERVER_NAME = TOOL_BRIDGE_SERVER_NAME
 // Generous enough for a first boot on slow hardware (e.g. ARM boards): the
 // initial boot also initializes the DSH profile before the web URL is printed.
 const START_TIMEOUT_MS = 90_000
@@ -63,7 +68,8 @@ function harnessPaths() {
     settings: path.join(root, 'home', 'settings.yaml'),
     credentials: path.join(root, 'home', '.credentials.yaml'),
     patch: path.join(root, 'home', 'happy-friday.patch.yml'),
-    policy: path.join(root, 'home', 'happy-friday-tool-policy.mjs')
+    // 审批插件随应用一起打包，不再复制到 DSH home，避免版本漂移。
+    approvalPlugin: path.resolve(__dirname, '..', '..', 'plugins', 'happy-friday-tools', 'index.js')
   }
 }
 
@@ -205,12 +211,10 @@ function harnessSignature(model, theme, locale) {
 }
 
 function mcpToolConfiguration() {
-  const definitions = listRegisteredTools().filter(def => def.meta?.exposedViaMcp === true)
+  const manifest = buildHarnessToolManifest(listRegisteredTools(), { serverName: MCP_SERVER_NAME })
   return {
-    toolCount: definitions.length,
-    approvalTools: definitions
-      .filter(def => def.meta?.requireApproval === true)
-      .map(def => `mcp__${MCP_SERVER_NAME}__${def.name}`)
+    ...manifest,
+    approvalConfig: buildApprovalPolicyConfig(manifest)
   }
 }
 
@@ -242,10 +246,7 @@ function syncConfiguration(model, mcpUrl) {
 
   writeHarnessCredential(paths.credentials, model.apiKey)
 
-  fs.copyFileSync(path.join(__dirname, 'toolApprovalPolicy.mjs'), paths.policy)
-  if (process.platform !== 'win32') fs.chmodSync(paths.policy, 0o600)
-
-  const { toolCount, approvalTools } = mcpToolConfiguration()
+  const { toolCount, approvalConfig } = mcpToolConfiguration()
   const patch = [
     { id: 'llm-deepseek', disabled: true },
     { id: 'ui-settings-models', disabled: true },
@@ -289,9 +290,9 @@ function syncConfiguration(model, mcpUrl) {
         },
         {
           id: 'happy-friday-tool-approval',
-          name: pathToFileURL(paths.policy).href,
+          name: pathToFileURL(paths.approvalPlugin).href,
           inject: ['tools'],
-          config: { approvalTools }
+          config: approvalConfig
         }
       ]
     }
