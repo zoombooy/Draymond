@@ -1,4 +1,4 @@
-# Happy Friday Lite
+# o-hino
 
 [中文](README.zh-CN.md)
 
@@ -175,7 +175,7 @@ Download the installer for your platform from [Releases](../../releases):
 ## 📂 Project Structure
 
 ```text
-happy-friday-lite/
+o-hino/
 ├── main.js                  # Electron main-process entry
 ├── preload.cjs              # Preload script
 ├── src/                     # Vue frontend source
