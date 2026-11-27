@@ -2136,9 +2136,9 @@ function queueChunk(content, reasoning = '') {
 }
 
 function loadModelConfig(modelId) {
-  const selectedId = modelId || localStorage.getItem('happy-friday-selected-model');
+  const selectedId = modelId || localStorage.getItem('o-hino-selected-model');
   try {
-    const raw = localStorage.getItem('happy-friday-custom-models');
+    const raw = localStorage.getItem('o-hino-custom-models');
     if (raw) {
       const models = JSON.parse(raw);
       let model = models.find(m => m.id === modelId);
@@ -2997,7 +2997,7 @@ const setHighlight = (color) => {
 };
 
 // ========== 最近使用的背景颜色 ==========
-const RECENT_HIGHLIGHT_KEY = 'happy-friday-recent-highlight-colors';
+const RECENT_HIGHLIGHT_KEY = 'o-hino-recent-highlight-colors';
 const RECENT_HIGHLIGHT_MAX = 9;
 
 const loadRecentHighlightColors = () => {
