@@ -4,7 +4,7 @@
 
 ## 项目概述
 
-o-hino —— 基于 Electron 42 + Vue 3 的桌面端个人知识智能助手，集成 AI Agent（Friday）、RAG 知识检索、富文本笔记、绘图、日程日历、Office 套件。所有数据本地存储。
+o-hino —— 基于 Electron 42 + Vue 3 的桌面端个人知识智能助手，集成 AI Agent（o-hino）、RAG 知识检索、富文本笔记、绘图、日程日历、Office 套件。所有数据本地存储。
 
 - 技术栈：Electron 42 / Vue 3 / Vite 6 / Pinia / LangChain + DeepAgents / Zvec 向量库 / sql.js (SQLite)
 - 语言：纯 JavaScript（无 TypeScript），ESM 为主
@@ -44,7 +44,7 @@ npm run electron:build:mac
 ┌──────────────────┐   preload    ┌─────────────────────────────┐
 │ Vue 3 SPA        │◄──preload.cjs◄┤ ipcMain.handle 注册各域命令  │
 │ src/views/       │  window.     │ src-electron/               │
-│ src/store/       │  electronAPI │ ├── agent/  Friday 智能体   │
+│ src/store/       │  electronAPI │ ├── agent/  o-hino 智能体   │
 │ src/services/    │              │ ├── rag/    RAG 流水线      │
 │ electron.js ─────┼──invoke─────►│ ├── db.js   SQLite          │
 └──────────────────┘              │ └── office/ Office 桥接     │
@@ -105,4 +105,4 @@ sql.js 内存库 + 防抖落盘。**每条写操作（INSERT/UPDATE/DELETE）之
 1. `npm run build` 确认前端可编译
 2. 涉及 scripts/ 或构建流程：跑 `node --test scripts/tests/`
 3. 涉及 Agent 工具/IPC：用 `npm run electron:dev` 手动冒烟验证对应功能
-4. 新增功能同步更新 README.md 与 README.zh-CN.md（两份都要）
+4. 新增功能同步更新唯一的中文 README.md（不再维护 README.zh-CN.md / README.en.md）
