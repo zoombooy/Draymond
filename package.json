@@ -377,5 +377,15 @@
       "category": "Utility",
       "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
     }
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "koffi": true,
+    "node-pty": true,
+    "protobufjs": true,
+    "tesseract.js": true,
+    "@deepseek-ai/dsh-subprocess-local": true,
+    "@parcel/watcher": true,
+    "@zvec/zvec": true
   }
 }
