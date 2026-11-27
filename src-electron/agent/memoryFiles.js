@@ -1,10 +1,10 @@
 /**
- * 记忆文件管理（SOUL.md / USER.md / MEMORY.md / Agent.md）
- * =====================================================
+ * 记忆文件管理（SOUL.md / USER.md / MEMORY.md / Agent.md / HARNESS.md）
+ * ===================================================================
  * 设计参考：LangChain Deep Agents「filesystem-backed memory」
  *   https://docs.langchain.com/oss/javascript/deepagents/memory
  *
- * 四份记忆文件以真实磁盘文件形式存放于 Agent 沙箱的 /memories/ 目录下，
+ * 五份记忆文件以真实磁盘文件形式存放于 Agent 沙箱的 /memories/ 目录下，
  * 由 createDeepAgent 的 memory: 参数在启动时加载进系统提示词，
  * Agent 亦可通过 edit_file 自主更新（permissions 已放行 /memories/** 读写）。
  *
@@ -22,6 +22,7 @@ import fs from 'fs'
 import path from 'path'
 import { getAgentRootDir } from './backend.js'
 import { createLogger } from './logger.js'
+import { DEFAULT_HARNESS_MEMORY } from '../harness/knowledgeBridge.js'
 
 const log = createLogger('MemoryFiles')
 
@@ -31,7 +32,7 @@ const MEMORY_DIR_NAME = 'memories'
 export const FRIDAY_BIRTH_DATE = '2026.2.7'
 
 /**
- * 四份记忆文件的元信息与默认内容。
+ * 五份记忆文件的元信息与默认内容。
  * nameKey / descKey 对应前端 i18n 键（drawer.memory.files.xxx / drawer.memory.files.xxx_desc）。
  */
 const MEMORY_FILES = [
@@ -123,6 +124,12 @@ const MEMORY_FILES = [
 ## 避坑指南
 - （待补充）
 `
+  },
+  {
+    fileName: 'HARNESS.md',
+    nameKey: 'HARNESS',
+    descKey: 'HARNESS_desc',
+    defaultContent: DEFAULT_HARNESS_MEMORY
   }
 ]
 
