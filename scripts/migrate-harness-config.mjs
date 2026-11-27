@@ -141,6 +141,8 @@ export function runMigration(dataDir) {
   const changed = []
   if (fs.existsSync(home)) {
     for (const file of [
+      path.join(home, 'o-hino.patch.yml'),
+      // 品牌重命名前的 patch 文件名，旧版本升级上来的用户仍需清理。
       path.join(home, 'happy-friday.patch.yml'),
       path.join(home, 'cordis.patch.yml')
     ]) {
@@ -158,6 +160,7 @@ export function runMigration(dataDir) {
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 if (isMain) {
   const dataDir = process.argv[2]
+    || process.env.O_HINO_DATA_DIR
     || process.env.HAPPY_FRIDAY_DATA_DIR
     || path.join(process.cwd(), 'app-data')
   const changed = runMigration(dataDir)
