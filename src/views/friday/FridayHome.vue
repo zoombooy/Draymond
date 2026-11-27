@@ -3,7 +3,7 @@
     <div class="friday-content">
       <div class="logo-section">
         <div class="logo-main">
-          <img :src="logoImage" alt="Friday" class="logo-image" draggable="false" />
+          <img :src="logoImage" alt="o-hino" class="logo-image" draggable="false" />
           <img :src="oHinoTextImage" alt="o-hino" class="o-hino-text-image" draggable="false" />
         </div>
         <p class="logo-subtitle">{{ t('friday.greeting') }}</p>
