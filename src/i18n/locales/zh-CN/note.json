@@ -119,7 +119,7 @@
     "exportMarkdown": "导出 Markdown",
     "presentation": "切换演示模式",
     "backToEdit": "切换编辑模式",
-    "fridayAssistant": "Friday 助理"
+    "fridayAssistant": "o-hino 助理"
   },
   "presentation": {
     "prev": "上一页",
@@ -193,10 +193,10 @@
     "cancel": "取消"
   },
   "aiSidebar": {
-    "title": "Friday 助理",
-    "assistant": "Friday 助理",
-    "emptyText": "向 Friday 提问，可获取写作帮助",
-    "askFriday": "向 Friday 提问，可获取写作帮助",
+    "title": "o-hino 助理",
+    "assistant": "o-hino 助理",
+    "emptyText": "向 o-hino 提问，可获取写作帮助",
+    "askFriday": "向 o-hino 提问，可获取写作帮助",
     "emptyHint": "主人，我可以使用写作Agent帮您修改这篇笔记",
     "quickPromptSummarize": "帮我归纳总结这篇笔记",
     "quickPromptTranslate": "将本篇笔记翻译为英语",
@@ -208,7 +208,7 @@
     "emptyContent": "消息内容为空，无法保存",
     "appendedToNote": "已追加到笔记末尾",
     "agentNoteContext": "当前用户正在编辑的笔记 ID 为 {noteId}。如需读取或修改这篇笔记，请调用 get_note 工具读取内容，修改完成后调用 update_note 工具（传入该 noteId）保存。",
-    "systemPrompt": "你是 Friday，一个定制化个人知识智能服务助手。你友好、专业，善于帮助用户解答问题和完成任务。\n\n当前用户正在编辑一篇笔记，以下是笔记的完整内容：\n\n{noteContent}\n\n请基于笔记内容来回答用户的问题。用户可能会引用笔记中的部分内容进行提问，请重点关注引用的内容，同时结合笔记全文上下文来给出准确、有价值的回答。"
+    "systemPrompt": "你是 o-hino，一个定制化个人知识智能服务助手。你友好、专业，善于帮助用户解答问题和完成任务。\n\n当前用户正在编辑一篇笔记，以下是笔记的完整内容：\n\n{noteContent}\n\n请基于笔记内容来回答用户的问题。用户可能会引用笔记中的部分内容进行提问，请重点关注引用的内容，同时结合笔记全文上下文来给出准确、有价值的回答。"
   },
   "bubbleMenu": {
     "close": "关闭",
@@ -226,7 +226,7 @@
     "inputPlaceholder": "输入问题，或从下方场景提问",
     "aiCommand": "AI 指令",
     "send": "发送",
-    "aiWrite": "Friday 帮写",
+    "aiWrite": "o-hino 帮写",
     "helpWrite": "帮写",
     "interpret": "解读",
     "refine": "精炼",
