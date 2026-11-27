@@ -12,14 +12,14 @@ test('识别已移除的运行时不变式条目', () => {
   assert.equal(isRemovedInvariantLine('- name: "@deepseek-ai/dsh-invariants"'), true)
   assert.equal(isRemovedInvariantLine("  - name: '@scope/foo/invariant'"), true)
   assert.equal(isRemovedInvariantLine('- id: agent-loop-invariant'), true)
-  assert.equal(isRemovedInvariantLine('- id: mcp-happy-friday'), false)
+  assert.equal(isRemovedInvariantLine('- id: mcp-o-hino'), false)
 })
 
 test('识别第二行给出 name 的旧条目', () => {
   const lines = [
     '- id: custom-invariant',
     '  name: "@deepseek-ai/dsh-invariants"',
-    '- id: mcp-happy-friday',
+    '- id: mcp-o-hino',
     '  name: "@deepseek-ai/dsh-mcp-client"'
   ]
   const result = filterYamlItems(lines, 0, isRemovedInvariantLine)
@@ -39,7 +39,7 @@ test('递归过滤嵌套列表中的旧条目，保留兄弟条目', () => {
     '- insert:',
     '  - id: invariants',
     '    name: "@deepseek-ai/dsh-invariants"',
-    '  - id: mcp-happy-friday',
+    '  - id: mcp-o-hino',
     '    name: "@deepseek-ai/dsh-mcp-client"',
     '- id: ui-settings-models',
     '  disabled: true'
@@ -47,7 +47,7 @@ test('递归过滤嵌套列表中的旧条目，保留兄弟条目', () => {
   const result = filterYamlItems(lines, 0, isRemovedInvariantLine)
   assert.equal(result.includes('  - id: invariants'), false)
   assert.equal(result.includes('    name: "@deepseek-ai/dsh-invariants"'), false)
-  assert.equal(result.includes('  - id: mcp-happy-friday'), true)
+  assert.equal(result.includes('  - id: mcp-o-hino'), true)
   assert.equal(result.includes('    name: "@deepseek-ai/dsh-mcp-client"'), true)
   assert.equal(result.includes('- id: llm-deepseek'), true)
   assert.equal(result.includes('- id: ui-settings-models'), true)
@@ -57,14 +57,14 @@ test('migrateYaml 同时清理不变式与 time-context', () => {
   const text = [
     '- id: time-context',
     '  options: {}',
-    '- id: mcp-happy-friday',
+    '- id: mcp-o-hino',
     '  name: "@deepseek-ai/dsh-mcp-client"',
     ''
   ].join('\n')
   const { text: next, changed } = migrateYaml(text)
   assert.equal(changed, true)
   assert.equal(next.includes('time-context'), false)
-  assert.equal(next.includes('mcp-happy-friday'), true)
+  assert.equal(next.includes('mcp-o-hino'), true)
 })
 
 test('migrateYaml 对新配置保持不变', () => {
