@@ -34,9 +34,9 @@ const MIME_BY_EXT = {
   pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
 }
 
-const DESKTOP_FILE_ID = 'happy-friday-lite.desktop'
-const PROG_ID_PREFIX = 'HappyFridayLite'
-const APP_NAME = 'Happy Friday Lite'
+const DESKTOP_FILE_ID = 'o-hino.desktop'
+const PROG_ID_PREFIX = 'OhinoLite'
+const APP_NAME = 'o-hino'
 
 function extsOfGroups(groups) {
   const wanted = new Set(groups)
