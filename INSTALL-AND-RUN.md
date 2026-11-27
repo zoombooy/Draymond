@@ -114,26 +114,26 @@ done
 
 ## 五、构建与启动
 
+**关键前提**：`main.js` 用 `const isDev = !app.isPackaged` 判断模式。未打包直接启动时 **一定是 dev 模式**，窗口会去加载 `http://localhost:5173`（Vite 服务）。如果只启动 Electron 而不拉起 Vite，窗口就是一片空白（控制台报 `ERR_CONNECTION_REFUSED`）。所以**必须用 `electron:dev` 一条命令把两者一起启动**：
+
 ```bash
+cd Draymond-work
 export PATH="/d/nvm/nvm/v24.22.3:$PATH"
 
-# 构建（前端）
-env -u NODE_OPTIONS -u CODEBUDDY_SAFE_DELETE_ENABLED npm run build
-
-# 启动
+# 一条命令同时拉起 Vite(5173) + Electron（推荐，唯一正确方式）
 env -u NODE_OPTIONS -u ELECTRON_RUN_AS_NODE -u CODEBUDDY_SAFE_DELETE_ENABLED \
-  ./node_modules/electron/dist/electron.exe .
+  npm run electron:dev
 ```
+
+脚本内部是 `concurrently "vite" "wait-on http://localhost:5173 && electron ."`，会等 Vite 就绪后再启动 Electron。启动成功标志：日志出现 `VITE v6.4.6 ready`、窗口标题变成 `Happy Friday Lite`（不是默认的 `happy-friday-lite`）、`curl http://localhost:5173/` 返回 200。
 
 **必须清掉 `ELECTRON_RUN_AS_NODE`**：WorkBuddy 客户端自己设了这个变量，不清的话 Electron 会以纯 Node 模式启动，报 `electron does not provide an export named 'BrowserWindow'`。
 
-`npm run start` 等价于上面的启动命令，但在 WorkBuddy 终端里需要清环境变量，所以直接用 electron.exe 更稳。
-
-开发模式（Vite 热更新 + Electron）：
+`npm run start` / 直接 `electron.exe .` **不适用**——它们只启动 Electron、不启动 Vite，窗口必然白屏。只有打包后的应用（`app.isPackaged === true`）才会走 `loadFile(dist/index.html)` 读构建产物。
 
 ```bash
-env -u NODE_OPTIONS -u ELECTRON_RUN_AS_NODE -u CODEBUDDY_SAFE_DELETE_ENABLED \
-  npm run electron:dev
+# 仅需要产出前端构建产物时（不需要启动窗口）
+env -u NODE_OPTIONS -u CODEBUDDY_SAFE_DELETE_ENABLED npm run build
 ```
 
 ## 六、实测结果（2026-11-27）
@@ -144,7 +144,7 @@ env -u NODE_OPTIONS -u ELECTRON_RUN_AS_NODE -u CODEBUDDY_SAFE_DELETE_ENABLED \
 | DSH CLI `--version` | 0.2.3-alpha.2 |
 | `node --test scripts/tests/*.test.mjs` | **29 / 29 通过** |
 | `npm run build` | ✓ built in 25.82s |
-| Electron 启动 | ✓ 窗口标题 `happy-friday-lite`，5 个进程，数据目录初始化 |
+| Electron 启动 | ✓ `npm run electron:dev` 后窗口标题 `Happy Friday Lite`，Vite 5173 返回 200，5 个进程，数据目录初始化 |
 | 配置迁移脚本 | ✓ 模拟旧配置清理 + 幂等验证通过 |
 
 **仍未验证**：Harness 页面的 sidecar 启动与插件加载（需要在 UI 里点启动并配置模型）。详见 `TESTING-DSH-0.2.md` 第 3、4 层。
