@@ -168,8 +168,11 @@ export function apply(ctx, config = {}) {
   })
 
   // waterfall：必须调用 next() 才能让默认的 runtime-context 投影继续执行。
+  // 官方 agent/pre-step 的 payload 直接带 agent（dsh-agent 的 installModelSelection
+  // 就解构 `{ agent, messages, ... }`）；优先用它，取不到再退回 currentInitiator()，
+  // 避免 currentInitiator() 在该阶段返回空时同轮合并被静默跳过。
   ctx.on('agent/pre-step', async (payload, next) => {
-    const agent = ctx.agents?.currentInitiator?.()
+    const agent = payload?.agent || ctx.agents?.currentInitiator?.()
     const sessionId = agent?.id
     const item = sessionId ? pending.get(sessionId) : null
     // 同步占位：检索 promise 可能在 await next() 期间就结算，

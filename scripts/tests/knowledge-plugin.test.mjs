@@ -110,6 +110,34 @@ test('pre-step 消费检索结果后不再重复 inject', async () => {
   assert.equal(injected.length, 0)
 })
 
+test('pre-step 优先使用 payload.agent（官方契约）完成同轮合并', async () => {
+  const { ctx, fire, injected } = createHarness()
+  // 模拟真实 DSH：currentInitiator() 不可用，agent 由 payload 直接提供
+  ctx.agents.currentInitiator = () => undefined
+  apply(ctx, configFor(os.tmpdir()))
+
+  const event = userEvent(3, '首轮就答出')
+  fire('session/event', { id: 'session-1' }, event)
+
+  const claimed = {
+    role: 'user',
+    content: [{ type: 'text', text: '首轮就答出' }],
+    source: { kind: 'user' }
+  }
+  const payload = { agent: { id: 'session-1' }, messages: [claimed], turn: 1, step: 1 }
+  const decision = await Promise.all(fire('agent/pre-step', payload, async () => ({
+    kind: 'enter',
+    messages: [claimed]
+  })))
+
+  assert.equal(decision[0].kind, 'enter')
+  assert.equal(decision[0].messages.length, 2, 'payload.agent 应让同轮合并生效')
+  assert.ok(decision[0].messages[1].content[0].text.includes('命中'))
+
+  await new Promise(resolve => setTimeout(resolve, 20))
+  assert.equal(injected.length, 0, 'pre-step 已消费，不应再走 agent.inject()')
+})
+
 test('assistant/message 投影到 HARNESS.md 且幂等', async () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hf-harness-'))
   const memoryFile = path.join(tempDir, 'HARNESS.md')

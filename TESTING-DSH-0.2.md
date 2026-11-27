@@ -28,7 +28,7 @@ node --test scripts/tests/migrate-harness-config.test.mjs \
          scripts/tests/knowledge-plugin.test.mjs
 ```
 
-**预期**：23 个用例全通过（实测 23/23，2026-11-27）。
+**预期**：全通过（实测 32/32，2026-11-27；含 `bundle-registry.test.mjs` 与 `payload.agent` 契约用例）。
 
 这三个文件覆盖：旧配置清理规则（含 `name:` 写在第二行的条目）、工具清单与审批决策、知识注入正文构造、工具结果解析、`agent.inject()` 与主轮次合并的互斥逻辑、`HARNESS.md` 幂等投影。
 

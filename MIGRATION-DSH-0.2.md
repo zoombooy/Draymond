@@ -93,3 +93,28 @@ node --test scripts/tests/*.test.mjs
 - P1b：确认 `ctx.tools` 的注册 API 后，将工具执行层从 MCP 桥接迁为原生插件工具。
 - P2 实测：`ctx.tools.execute()` 调用 MCP 工具的实际返回形状、`agent/pre-step` 中 `currentInitiator()` 的可用性，需在 Electron 冒烟测试中确认。
 - P3/P4：headless 自动化并轨、SDK 宿主化替换 iframe。
+
+## 插件机制与 DSH 0.2.3 原生契约核对（2026-11-27）
+
+结论：**P1/P2 采用的就是 DSH 0.2.3 的原生 Cordis 插件机制**，不是自己另起的 IPC/回调旁路。逐项对照已安装的 `@deepseek-ai/*` 源码：
+
+| 机制 | 项目实现 | 官方契约（0.2.3-alpha.2） | 结论 |
+|---|---|---|---|
+| 插件导出 | `export const name` / `export const inject` / `export function apply(ctx, config)` | Cordis `isApplicable()` 检查 `typeof plugin.apply === 'function'` 并调用 `plugin.apply`；`inject` 为依赖声明（cordis/lib/index.js:1669,1758） | ✅ 一致 |
+| 挂载方式 | profile patch 的 `insert` 条目，`name` 指向仓库内插件的 `file://` 绝对路径 | loader 的 patch `insert` / `disabled` / `config` 字段（dsh-app-boot/lib/index.js:7223 等） | ✅ 一致 |
+| P1 hook | `ctx.on('tools/pre-execute', async (execution, next) => ...)` | events.d.ts:17 `'tools/pre-execute'(exec, next: () => Promise<PreToolDecision>)` | ✅ 一致 |
+| P1 决策 | `{ kind: 'ask', reason }` | contracts.d.ts:334-344 `PreToolDecision` 含 `allow/deny/cancel/ask`，`ask` 带可选 `reason` | ✅ 一致 |
+| P2 hook | `ctx.on('session/event', ...)` | dsh-session/lib/index.js（事件名真实存在） | ✅ 一致 |
+| P2 检索 | `ctx.tools.execute({ calls: [{ id, name, arguments: JSON.stringify(...) }], signal, agent })` | tools/lib/index.js:642 `execute(input)` → pipeline.js:29 解构 `{ calls, signal, agent, toolSet }`；pipeline.js:33-42 逐字段读 `block.id/name/arguments` 并 `parseArguments` | ✅ 一致 |
+| P2 注入 | `agent.inject(message)` | runtime-types.d.ts:237 `inject(message: UserMessage): void` | ✅ 一致 |
+| P2 同轮合并 | `ctx.on('agent/pre-step', async (payload, next) => { const d = await next(); if (d.kind !== 'enter') ...; return { ...d, messages: [...d.messages, msg] } })` | runtime-types.d.ts:117-124 `PreStepDecision = {kind:'reject'} \| {kind:'enter', messages: UserMessage[]}`；events 契约 `next: () => Promise<PreStepDecision>`；官方 installModelSelection（dsh-agent/lib/index.js:231）同样 `await next()` 后展开 `messages` | ✅ 一致 |
+| 第三方 bundle | `bundleRegistry.js` 生成 patch `insert` 条目，`disabled` 控制启停 | 复用同一 patch 机制；不接 DSH 的 pnpm workspace / PluginManager | ⚠️ 见下 |
+
+### 与"完整插件机制"的两点距离
+
+1. **工具执行仍走 MCP 桥接，不是原生 `ctx.tools` 注册**（即文档里的 P1b）。当前 `mcp__o-hino__*` 是本机 MCP server 暴露给 dsh 的，插件只做审批与知识注入；DSH 原生做法是插件内 `ctx.tools.register()` 注册工具。这是**刻意的渐进迁移**，见 `plugins/o-hino-tools/index.js` 头部注释。
+2. **第三方 bundle 用自建注册表 + patch 投影，没接 DSH 官方的 pnpm workspace / PluginManager**（当时判断完整接入成本过高，见第 2 层设计）。用户添加的包名/路径最终仍以官方 loader 的 `insert` 条目加载，运行时机制是原生的，只是"安装/依赖解析"这层没用官方的。
+
+### 一处已修正的实现细节（2026-11-27）
+
+`plugins/o-hino-knowledge/index.js` 原先在 `agent/pre-step` 里用 `ctx.agents.currentInitiator()` 取 agent，而官方 payload **直接带 `agent`**（dsh-agent/lib/index.js:231 解构 `{ agent, messages, ... }`）。若 `currentInitiator()` 在该阶段返回空，同轮合并会静默跳过、退化成 `agent.inject()` 兜底（首轮知识晚一拍）。现已改为 `payload?.agent || ctx.agents?.currentInitiator?.()`：优先用官方传入的 agent，保留旧路径兜底以兼容现有测试 mock；`scripts/tests/knowledge-plugin.test.mjs` 新增用例覆盖 payload 带 agent 的官方契约路径。全套纯逻辑单测 **32/32 通过**。
