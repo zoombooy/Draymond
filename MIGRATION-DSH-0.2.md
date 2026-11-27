@@ -21,16 +21,16 @@
 
 ### P1 工具清单与审批插件化
 
-- 新增 `src-electron/harness/toolBridge.js`：把注册表中 `exposedViaMcp: true` 的工具统一生成为 `mcp__happy-friday__*` 清单及审批工具列表，消除两处重复拼接。
-- 新增一等插件 `plugins/happy-friday-tools/`：在 `tools/pre-execute` 上执行审批，替代原先复制到 DSH home 的 `toolApprovalPolicy.mjs`（已删除）。
+- 新增 `src-electron/harness/toolBridge.js`：把注册表中 `exposedViaMcp: true` 的工具统一生成为 `mcp__o-hino__*` 清单及审批工具列表，消除两处重复拼接。
+- 新增一等插件 `plugins/o-hino-tools/`：在 `tools/pre-execute` 上执行审批，替代原先复制到 DSH home 的 `toolApprovalPolicy.mjs`（已删除）。
 - `src-electron/harness/index.js`：改用桥接层生成配置，patch 直接引用仓库内插件的绝对路径。
 - `scripts/tests/tool-bridge.test.mjs`：6 个用例覆盖清单过滤、审批决策与插件行为。
 - `AGENTS.md`：补充 Harness 约定与 0.2.x 红线。
 
 ### P2 知识库注入与会话记忆投影
 
-- 新增一等插件 `plugins/happy-friday-knowledge/`：
-  - `session/event` 收到用户输入（`agent/inbox/spliced` / `user/message`）后，通过 `ctx.tools.execute()` 调用 `mcp__happy-friday__retrieve_knowledge`，把结果包装成 `agent.inject()` 消息。
+- 新增一等插件 `plugins/o-hino-knowledge/`：
+  - `session/event` 收到用户输入（`agent/inbox/spliced` / `user/message`）后，通过 `ctx.tools.execute()` 调用 `mcp__o-hino__retrieve_knowledge`，把结果包装成 `agent.inject()` 消息。
   - `agent/pre-step` waterfall 中同步占位并等待检索结果，把注入消息并入当前批次，避免首轮对话晚一拍；已完成合并的结果不会再走 `agent.inject()`，防止重复注入。
   - `assistant/message` 事件幂等投影到 `/memories/HARNESS.md`，标记外的手动编辑保留，默认不写入用户原话（`captureUser: false`）。
 - 新增 `src-electron/harness/knowledgeBridge.js`：用户输入识别、query 提取、注入正文限长、工具结果解析、记忆段落幂等合并，全部为纯函数。
@@ -70,7 +70,7 @@ node --test scripts/tests/*.test.mjs
    ```bash
    npm run harness:migrate -- ./app-data
    ```
-   自定义数据目录时传入实际目录，或设置 `HAPPY_FRIDAY_DATA_DIR`。
+   自定义数据目录时传入实际目录，或设置 `O_HINO_DATA_DIR`。
 
 4. 用 `dsh --dump-config` 检查组合后的插件树，确认没有 `patch: entry not found` 或模块缺失告警。
 
