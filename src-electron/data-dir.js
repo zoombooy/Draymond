@@ -13,7 +13,7 @@ const isDev = !app.isPackaged
 /**
  * 默认数据目录（必须在 main.js 执行 app.setPath('userData') 之前捕获，
  * 本模块 import 时即求值，早于 main.js 体内代码，因此 app.getPath('userData')
- * 返回的仍是系统默认值 %APPDATA%/Happy Friday Lite）
+ * 返回的仍是系统默认值 %APPDATA%/o-hino）
  */
 export const defaultDataDir = isDev
   ? path.join(projectRoot, 'app-data')
