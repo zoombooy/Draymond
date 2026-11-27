@@ -29,6 +29,15 @@ import {
   startSdkRuntime,
   stopSdkRuntime
 } from './sdkRuntime.js'
+import {
+  BundleValidationError,
+  addBundle,
+  normalizeBundleSpec,
+  removeBundle,
+  sanitizeRegistry,
+  setBundleEnabled,
+  toPatchEntries
+} from './bundleRegistry.js'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -79,6 +88,7 @@ function harnessPaths() {
     settings: path.join(root, 'home', 'settings.yaml'),
     credentials: path.join(root, 'home', '.credentials.yaml'),
     patch: path.join(root, 'home', 'o-hino.patch.yml'),
+    bundles: path.join(root, 'bundles.json'),
     // 插件随应用一起打包，不再复制到 DSH home，避免版本漂移。
     approvalPlugin: path.resolve(__dirname, '..', '..', 'plugins', 'o-hino-tools', 'index.js'),
     knowledgePlugin: path.resolve(__dirname, '..', '..', 'plugins', 'o-hino-knowledge', 'index.js'),
@@ -130,6 +140,24 @@ function writeAtomic(filename, content, mode = 0o600) {
   if (process.platform !== 'win32') fs.chmodSync(temporary, mode)
   fs.renameSync(temporary, filename)
   if (process.platform !== 'win32') fs.chmodSync(filename, mode)
+}
+
+// 用户自行添加的第三方 bundle 注册表。坏文件按空表处理并留备份，避免
+// 一个损坏的 JSON 让整个 Harness 启动失败。
+function readBundleRegistry(file) {
+  if (!fs.existsSync(file)) return []
+  try {
+    return sanitizeRegistry(JSON.parse(fs.readFileSync(file, 'utf-8')))
+  } catch (error) {
+    console.warn(`[Harness] Ignoring corrupt bundle registry: ${error.message}`)
+    return []
+  }
+}
+
+function writeBundleRegistry(file, registry) {
+  const clean = sanitizeRegistry(registry)
+  writeAtomic(file, `${JSON.stringify(clean, null, 2)}\n`)
+  return clean
 }
 
 // DSH 0.1.5 credentials-local only admits a versioned document whose top-level
@@ -327,7 +355,10 @@ function syncConfiguration(model, mcpUrl) {
             captureUser: false,
             memoryFile: paths.memoryFile
           }
-        }
+        },
+        // 用户添加的第三方 bundle / 插件，与内置插件同一份 patch，
+        // web 与 sdk 两条通道都会加载。禁用项以 disabled 条目保留。
+        ...toPatchEntries(readBundleRegistry(paths.bundles))
       ]
     }
   ]
@@ -720,4 +751,42 @@ export function registerHarnessCommands(window) {
   ipcMain.handle('harness-sdk-prompt', (_event, text, options) => sdkPrompt(sdkRuntime, text, options || {}))
   ipcMain.handle('harness-sdk-wait', (_event, options) => sdkWait(sdkRuntime, options || {}))
   ipcMain.handle('harness-sdk-stop', () => stopSdkChannel())
+
+  // 第三方 bundle 管理。改动只写注册表 + 重写 patch，是否立即生效取决于
+  // Harness 是否开启 HMR；未开启时提示用户重启 Harness。
+  ipcMain.handle('harness-bundles-list', () => {
+    const paths = harnessPaths()
+    return {
+      bundles: readBundleRegistry(paths.bundles),
+      restartRequired: state.status === 'ready' || !!sdkRuntime
+    }
+  })
+  const bundleResult = result => ({
+    ...result,
+    bundles: result.registry,
+    restartRequired: state.status === 'ready' || !!sdkRuntime
+  })
+  ipcMain.handle('harness-bundles-add', (_event, input) => {
+    const file = harnessPaths().bundles
+    let spec
+    try {
+      spec = normalizeBundleSpec(typeof input === 'string' ? input : input?.spec)
+    } catch (error) {
+      if (error instanceof BundleValidationError) throw error
+      throw new Error(`无法解析插件位置：${error.message}`)
+    }
+    const label = typeof input === 'object' && typeof input.label === 'string' ? input.label : ''
+    const result = addBundle(readBundleRegistry(file), spec, { label })
+    return bundleResult({ ...result, registry: writeBundleRegistry(file, result.registry) })
+  })
+  ipcMain.handle('harness-bundles-remove', (_event, id) => {
+    const file = harnessPaths().bundles
+    const result = removeBundle(readBundleRegistry(file), id)
+    return bundleResult({ ...result, registry: writeBundleRegistry(file, result.registry) })
+  })
+  ipcMain.handle('harness-bundles-toggle', (_event, id, enabled) => {
+    const file = harnessPaths().bundles
+    const result = setBundleEnabled(readBundleRegistry(file), id, !!enabled)
+    return bundleResult({ ...result, registry: writeBundleRegistry(file, result.registry) })
+  })
 }

@@ -133,6 +133,13 @@
             </div>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="arrow-icon"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </div>
+          <div class="setting-item clickable" @click="goToBundleSettings">
+            <div class="item-label-group">
+              <span class="item-label">{{ t('settings.bundles') }}</span>
+              <span class="item-hint">{{ t('settings.bundlesHint') }}</span>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="arrow-icon"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
         </div>
       </div>
 
@@ -1391,6 +1398,10 @@ const goToModelSettings = () => {
 
 const goToModuleSettings = () => {
   router.push('/settings/modules');
+};
+
+const goToBundleSettings = () => {
+  router.push('/settings/bundles');
 };
 
 // ========== 关于 / 功能介绍 ==========

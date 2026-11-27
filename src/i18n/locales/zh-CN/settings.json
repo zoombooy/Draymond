@@ -220,5 +220,19 @@
     "lastUpdate": "更新于",
     "supportedProvider": "支持查询",
     "retry": "重试"
-  }
+  },
+  "bundles": "插件管理",
+  "bundlesHint": "安装并启停 DeepSeek Harness 第三方插件",
+  "bundlesTitle": "插件管理",
+  "bundlesDesc": "在这里接入第三方 Harness 插件。支持 npm 包名（如 @scope/pkg）或本地插件目录的绝对路径。添加后重启 Harness 生效。",
+  "bundlesAddTitle": "添加插件",
+  "bundlesAddHint": "填入 npm 包名或本地插件目录绝对路径。插件需符合 DSH Cordis 插件规范（导出 name / inject / apply）。",
+  "bundlesInputPlaceholder": "例如 @scope/my-plugin 或 D:/plugins/my-plugin",
+  "bundlesAdd": "添加",
+  "bundlesInstalled": "已添加插件",
+  "bundlesEmpty": "还没有添加第三方插件。",
+  "bundlesToggle": "启用/停用插件",
+  "bundlesRemove": "移除",
+  "bundlesRestartHint": "插件变更需要重启 Harness 后才能生效。",
+  "bundlesRestart": "立即重启"
 }

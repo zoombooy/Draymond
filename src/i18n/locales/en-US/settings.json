@@ -220,5 +220,19 @@
     "lastUpdate": "Updated at",
     "supportedProvider": "Supported",
     "retry": "Retry"
-  }
+  },
+  "bundles": "Plugins",
+  "bundlesHint": "Install and toggle third-party DeepSeek Harness plugins",
+  "bundlesTitle": "Plugin management",
+  "bundlesDesc": "Add third-party Harness plugins here. Accepts an npm package name (e.g. @scope/pkg) or an absolute path to a local plugin directory. Restart Harness to apply.",
+  "bundlesAddTitle": "Add plugin",
+  "bundlesAddHint": "Enter an npm package name or an absolute path to a local plugin directory. Plugins must follow the DSH Cordis convention (export name / inject / apply).",
+  "bundlesInputPlaceholder": "e.g. @scope/my-plugin or D:/plugins/my-plugin",
+  "bundlesAdd": "Add",
+  "bundlesInstalled": "Installed plugins",
+  "bundlesEmpty": "No third-party plugins added yet.",
+  "bundlesToggle": "Toggle plugin",
+  "bundlesRemove": "Remove",
+  "bundlesRestartHint": "Plugin changes take effect after restarting Harness.",
+  "bundlesRestart": "Restart now"
 }

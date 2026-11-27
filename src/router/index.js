@@ -90,6 +90,11 @@ export const routes = [
     component: () => import('@/views/settings/SettingsFileOpen.vue')
   },
   {
+    path: '/settings/bundles',
+    name: 'settings-bundles',
+    component: () => import('@/views/settings/SettingsBundles.vue')
+  },
+  {
     path: '/friday',
     component: () => import('@/views/friday/FridayLayout.vue'),
     children: [
