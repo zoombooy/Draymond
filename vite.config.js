@@ -60,7 +60,11 @@ export default defineConfig(() => ({
     // 使 Vite 直接退出（随后 Electron 连不上 5173 → 白屏）。
     // app-data 不是源码目录，忽略它不影响 HMR。
     watch: {
-      ignored: ["**/app-data/**"],
+      // 用正则而非 glob：Vite 重启时 anymatch 对 Windows 反斜杠绝对路径
+      // （D:\...\app-data\...）的 glob 匹配会失效，导致 chokidar 监听被
+      // Electron 锁住的 Cookies / leveldb 文件抛 EBUSY 并使 Vite 退出。
+      // 正则直接对路径字符串做 test，正反斜杠都能命中。
+      ignored: [/[\\/]app-data[\\/]/],
     },
     hmr: {
       protocol: "ws",
