@@ -4,7 +4,7 @@
 
 ## 项目概述
 
-Happy Friday Lite —— 基于 Electron 42 + Vue 3 的桌面端个人知识智能助手，集成 AI Agent（Friday）、RAG 知识检索、富文本笔记、绘图、日程日历、Office 套件。所有数据本地存储。
+o-hino —— 基于 Electron 42 + Vue 3 的桌面端个人知识智能助手，集成 AI Agent（Friday）、RAG 知识检索、富文本笔记、绘图、日程日历、Office 套件。所有数据本地存储。
 
 - 技术栈：Electron 42 / Vue 3 / Vite 6 / Pinia / LangChain + DeepAgents / Zvec 向量库 / sql.js (SQLite)
 - 语言：纯 JavaScript（无 TypeScript），ESM 为主
@@ -67,10 +67,10 @@ npm run electron:build:mac
 ### Harness 子系统（src-electron/harness/ + plugins/）
 
 - 依赖版本：`@deepseek-ai/dsh 0.2.3-alpha.2`（Node >= 24.22.3）。升级前先读官方 upgrade guide，并运行 `npm run harness:migrate -- <dataDir>` 清理 0.1.x patch。
-- 工具清单只有一处真相：`toolBridge.js` 的 `buildHarnessToolManifest()` 从工具注册表生成 `mcp__happy-friday__*` 名称与审批工具列表；不要在其他文件里另行拼接。
-- 审批策略插件位于 `plugins/happy-friday-tools/`，由 `harness/index.js` 以绝对路径注入 patch；不要再向 DSH home 复制策略文件。
+- 工具清单只有一处真相：`toolBridge.js` 的 `buildHarnessToolManifest()` 从工具注册表生成 `mcp__o-hino__*` 名称与审批工具列表；不要在其他文件里另行拼接。
+- 审批策略插件位于 `plugins/o-hino-tools/`，由 `harness/index.js` 以绝对路径注入 patch；不要再向 DSH home 复制策略文件。
 - 新增 Harness patch 条目时注意 0.2.x 的组合顺序：bundles → profile patch → home patch → `--patch` overlay。
-- 知识库注入插件位于 `plugins/happy-friday-knowledge/`；纯逻辑在 `src-electron/harness/knowledgeBridge.js`，不要把 Electron / db / zod 依赖带进插件。
+- 知识库注入插件位于 `plugins/o-hino-knowledge/`；纯逻辑在 `src-electron/harness/knowledgeBridge.js`，不要把 Electron / db / zod 依赖带进插件。
 - `agent.inject()` 只排队、不唤醒 driver：同轮生效要靠 `agent/pre-step` waterfall 合并消息，且必须调用 `next()`；两者用 `claimed` 标记互斥，避免重复注入。
 - Harness 会话摘录落盘到 `/memories/HARNESS.md`，只改两个标记之间的段落；新增记忆文件时必须同步五处：默认内容、i18n 两份、`getMemoryPaths()`、记忆管理界面白名单。
 
