@@ -45,7 +45,7 @@
                   <div v-else-if="msg.segments && msg.segments.length > 0" class="agent-response-block">
                     <div class="agent-response-header">
                       <div class="avatar ai-avatar"><span class="avatar-icon">✦</span></div>
-                      <span class="ai-name">周五</span>
+                      <span class="ai-name">o-hino</span>
                     </div>
                     <div class="agent-timeline">
                       <template v-for="(seg, si) in msg.segments" :key="`${msg.id}-seg-${si}`">
