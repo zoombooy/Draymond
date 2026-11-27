@@ -4,7 +4,7 @@
       <div class="logo-section">
         <div class="logo-main">
           <img :src="logoImage" alt="Friday" class="logo-image" draggable="false" />
-          <img :src="happyFridayTextImage" alt="Happy Friday" class="happy-friday-text-image" draggable="false" />
+          <img :src="oHinoTextImage" alt="o-hino" class="o-hino-text-image" draggable="false" />
         </div>
         <p class="logo-subtitle">{{ t('friday.greeting') }}</p>
       </div>
@@ -45,7 +45,7 @@ const composerBinding = { ref: inputText };
 
 const isDark = computed(() => appStore.theme === 'dark');
 const logoImage = new URL('@/assets/images/friday-w.webp', import.meta.url).href;
-const happyFridayTextImage = computed(() => (
+const oHinoTextImage = computed(() => (
   isDark.value
     ? new URL('@/assets/images/HPTEXT-w.png', import.meta.url).href
     : new URL('@/assets/images/HPTEXT-b.png', import.meta.url).href
@@ -106,7 +106,7 @@ function handleSend(payload) {
   -webkit-user-drag: none;
 }
 
-.happy-friday-text-image {
+.o-hino-text-image {
   width: min(360px, 88vw);
   height: auto;
   object-fit: contain;
