@@ -201,11 +201,11 @@ async function buildMainBundles() {
   }
 }
 
-// ---- 3b. Headless CLI (happyfriday-office) -----------------------------------
+// ---- 3b. Headless CLI (ohino-office) -----------------------------------
 
 function buildCli() {
   if (SKIP_CLI) return
-  console.log('[office] Building happyfriday-office CLI (upstream @genoffice/cli)…')
+  console.log('[office] Building ohino-office CLI (upstream @genoffice/cli)…')
   run('npm', ['run', 'build', '--workspace', '@genoffice/cli', '--no-audit', '--no-fund'], {
     cwd: VENDOR,
     env: { ELECTRON_SKIP_BINARY_DOWNLOAD: '1' },
@@ -235,13 +235,13 @@ function stage(sidecarBin) {
     fs.mkdirSync(nativeDir, { recursive: true })
     fs.copyFileSync(sidecarBin, path.join(nativeDir, path.basename(sidecarBin)))
   }
-  // happyfriday-office CLI：单 CJS bundle + 旁置 jsdom 依赖树
+  // ohino-office CLI：单 CJS bundle + 旁置 jsdom 依赖树
   if (!SKIP_CLI) {
     const cliDist = path.join(VENDOR, 'packages', 'cli', 'dist')
     const cliDir = path.join(OFFICE_ROOT, 'cli')
     fs.rmSync(cliDir, { recursive: true, force: true })
     fs.mkdirSync(cliDir, { recursive: true })
-    fs.copyFileSync(path.join(cliDist, 'genoffice.cjs'), path.join(cliDir, 'happyfriday-office.cjs'))
+    fs.copyFileSync(path.join(cliDist, 'genoffice.cjs'), path.join(cliDir, 'ohino-office.cjs'))
     if (fs.existsSync(path.join(cliDist, 'node_modules'))) {
       copyDir(path.join(cliDist, 'node_modules'), path.join(cliDir, 'node_modules'))
     }
@@ -265,7 +265,7 @@ function stage(sidecarBin) {
 
 /**
  * 将上游 skills/genoffice/SKILL.md 适配为本产品内置 skill：
- *  - 命令名 genoffice → happyfriday-office（仅反引号内的命令调用）
+ *  - 命令名 genoffice → ohino-office（仅反引号内的命令调用）
  *  - 启动器段落改写为本产品 CLI 的实际位置与推荐用法（office_* Agent 工具）
  *  - 保留上游 frontmatter（name: genoffice 与目录名一致）与许可证
  */
@@ -279,13 +279,13 @@ function stageSkill() {
   // 上游启动器段落（~/.genoffice/launcher 等）对本产品无意义，整段替换
   md = md.replace(
     /^`genoffice` is installed with GenOffice\..*$/m,
-    '`happyfriday-office` ships inside Happy Friday (no separate installation). In this app you normally do not call the binary directly: prefer the `office_open` / `office_create` / `office_inspect` / `office_export` / `office_edit_active` / `office_batch` agent tools, which locate and run the bundled CLI for you (headless, on the app\'s own Node/Electron runtime). The `open` and `selection` commands are covered by the `office_open` tool and are not available to the bare CLI here. Direct invocation, when a tool does not fit: the bundle lives at `<app resources>/office/cli/happyfriday-office.cjs` with its `node_modules` beside it, the pdfium wasm at `<app resources>/office/wasm/pdfium.wasm` and the xlsx sidecar at `<app resources>/office/native/xlsx-sidecar`; when running the bundle with a plain Node, point `GENOFFICE_PDFIUM_WASM` / `XLSX_SIDECAR_PATH` at those two files. Every command runs headless on the app\'s own engines; only `search`, `image` and `media` send data off the machine.'
+    '`ohino-office` ships inside o-hino (no separate installation). In this app you normally do not call the binary directly: prefer the `office_open` / `office_create` / `office_inspect` / `office_export` / `office_edit_active` / `office_batch` agent tools, which locate and run the bundled CLI for you (headless, on the app\'s own Node/Electron runtime). The `open` and `selection` commands are covered by the `office_open` tool and are not available to the bare CLI here. Direct invocation, when a tool does not fit: the bundle lives at `<app resources>/office/cli/ohino-office.cjs` with its `node_modules` beside it, the pdfium wasm at `<app resources>/office/wasm/pdfium.wasm` and the xlsx sidecar at `<app resources>/office/native/xlsx-sidecar`; when running the bundle with a plain Node, point `GENOFFICE_PDFIUM_WASM` / `XLSX_SIDECAR_PATH` at those two files. Every command runs headless on the app\'s own engines; only `search`, `image` and `media` send data off the machine.'
   )
   // 其余反引号内的命令调用统一改名（GenOffice 专名为大小写不同，不受影响）
-  md = md.replace(/`genoffice\b/g, '`happyfriday-office')
+  md = md.replace(/`genoffice\b/g, '`ohino-office')
   // 代码示例块中的裸命令调用（先保护 frontmatter 的 name: genoffice）
   md = md.replace(/^name: genoffice$/m, 'name: __SKILL_NAME__')
-  md = md.replace(/\bgenoffice\b/g, 'happyfriday-office')
+  md = md.replace(/\bgenoffice\b/g, 'ohino-office')
   md = md.replace('name: __SKILL_NAME__', 'name: genoffice')
   const destDir = path.join(ROOT, 'public', 'skills', 'genoffice')
   fs.mkdirSync(destDir, { recursive: true })
