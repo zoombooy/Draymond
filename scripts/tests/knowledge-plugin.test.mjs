@@ -3,7 +3,7 @@ import test from 'node:test'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { apply } from '../../plugins/happy-friday-knowledge/index.js'
+import { apply } from '../../plugins/o-hino-knowledge/index.js'
 import { MEMORY_SECTION_START } from '../../src-electron/harness/knowledgeBridge.js'
 
 function createHarness(overrides = {}) {
@@ -24,7 +24,7 @@ function createHarness(overrides = {}) {
       currentInitiator: () => agent
     },
     tools: {
-      get: () => ({ name: 'mcp__happy-friday__retrieve_knowledge' }),
+      get: () => ({ name: 'mcp__o-hino__retrieve_knowledge' }),
       execute: async (input) => {
         calls.push(input)
         return {
@@ -61,7 +61,7 @@ function userEvent(seq, text) {
 
 function configFor(tempDir) {
   return {
-    toolName: 'mcp__happy-friday__retrieve_knowledge',
+    toolName: 'mcp__o-hino__retrieve_knowledge',
     memoryFile: path.join(tempDir, 'HARNESS.md'),
     preStepTimeoutMs: 300
   }
@@ -77,11 +77,11 @@ test('用户输入触发 MCP 检索并走 agent.inject()', async () => {
   await new Promise(resolve => setTimeout(resolve, 20))
 
   assert.equal(calls.length, 1)
-  assert.equal(calls[0].calls[0].name, 'mcp__happy-friday__retrieve_knowledge')
+  assert.equal(calls[0].calls[0].name, 'mcp__o-hino__retrieve_knowledge')
   assert.equal(JSON.parse(calls[0].calls[0].arguments).query, '总结 Draymond 架构')
   assert.equal(injected.length, 1)
   assert.equal(injected[0].role, 'user')
-  assert.equal(injected[0].source.kind, 'happy-friday-knowledge')
+  assert.equal(injected[0].source.kind, 'o-hino-knowledge')
   assert.ok(injected[0].content[0].text.includes('【知识库检索结果】'))
 })
 
@@ -114,8 +114,8 @@ test('assistant/message 投影到 HARNESS.md 且幂等', async () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hf-harness-'))
   const memoryFile = path.join(tempDir, 'HARNESS.md')
   fs.writeFileSync(memoryFile, '# Harness 会话摘录\n\n手动说明\n\n' +
-    '<!-- happy-friday-harness-memory:start -->\n' +
-    '<!-- happy-friday-harness-memory:end -->\n', 'utf-8')
+    '<!-- o-hino-harness-memory:start -->\n' +
+    '<!-- o-hino-harness-memory:end -->\n', 'utf-8')
 
   const { ctx, emit } = createHarness()
   apply(ctx, configFor(tempDir))
