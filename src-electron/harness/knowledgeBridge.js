@@ -14,10 +14,10 @@
  * 首轮对话会晚一拍才看到知识库内容。
  */
 
-export const INJECTION_SOURCE_KIND = 'happy-friday-knowledge'
+export const INJECTION_SOURCE_KIND = 'o-hino-knowledge'
 
-export const MEMORY_SECTION_START = '<!-- happy-friday-harness-memory:start -->'
-export const MEMORY_SECTION_END = '<!-- happy-friday-harness-memory:end -->'
+export const MEMORY_SECTION_START = '<!-- o-hino-harness-memory:start -->'
+export const MEMORY_SECTION_END = '<!-- o-hino-harness-memory:end -->'
 
 export const DEFAULT_HARNESS_MEMORY = `# Harness 会话摘录
 
