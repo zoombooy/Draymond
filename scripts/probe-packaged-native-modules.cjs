@@ -41,7 +41,7 @@ async function main() {
 
   const systemDir = path.join(nodeModules, '@deepseek-ai', 'node-addon-system');
   const flock = await import(pathToFileURL(path.join(systemDir, 'lib', 'flock.js')));
-  const temporary = path.join(os.tmpdir(), `happy-friday-flock-${process.pid}`);
+  const temporary = path.join(os.tmpdir(), `o-hino-flock-${process.pid}`);
   const descriptor = fs.openSync(temporary, 'w');
   try {
     await flock.tryLockExclusive(descriptor);
