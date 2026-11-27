@@ -125,11 +125,13 @@ env -u NODE_OPTIONS -u ELECTRON_RUN_AS_NODE -u CODEBUDDY_SAFE_DELETE_ENABLED \
   npm run electron:dev
 ```
 
-脚本内部是 `concurrently "vite" "wait-on http://localhost:5173 && electron ."`，会等 Vite 就绪后再启动 Electron。启动成功标志：日志出现 `VITE v6.4.6 ready`、窗口标题变成 `o-hino`（不是默认的 `o-hino`）、`curl http://localhost:5173/` 返回 200。
+脚本内部是 `concurrently "vite" "wait-on http://localhost:5173 && electron ."`，会等 Vite 就绪后再启动 Electron。启动成功标志：日志出现 `VITE v6.4.6 ready`、窗口标题变成 `o-hino`（不是默认的 Electron 标题）、`curl http://localhost:5173/` 返回 200。
 
 **必须清掉 `ELECTRON_RUN_AS_NODE`**：WorkBuddy 客户端自己设了这个变量，不清的话 Electron 会以纯 Node 模式启动，报 `electron does not provide an export named 'BrowserWindow'`。
 
 `npm run start` / 直接 `electron.exe .` **不适用**——它们只启动 Electron、不启动 Vite，窗口必然白屏。只有打包后的应用（`app.isPackaged === true`）才会走 `loadFile(dist/index.html)` 读构建产物。
+
+**另一个白屏根因（已修复）**：开发环境下 Electron 把 userData 放在项目内的 `app-data/`，其中包含被 Electron 锁定的 `Local Storage/leveldb/*.tmp` 文件。Vite 默认监听整个项目根目录，chokidar 扫描到这些被锁文件时抛 `EBUSY: resource busy or locked`，导致 Vite 进程直接退出（`vite exited with code 1`），随后 Electron 报 `ERR_CONNECTION_REFUSED` 而白屏。已在 `vite.config.js` 的 `server.watch.ignored` 中加入 `**/app-data/**`——该目录是运行时数据而非源码，忽略不影响 HMR。
 
 ```bash
 # 仅需要产出前端构建产物时（不需要启动窗口）
@@ -145,6 +147,7 @@ env -u NODE_OPTIONS -u CODEBUDDY_SAFE_DELETE_ENABLED npm run build
 | `node --test scripts/tests/*.test.mjs` | **29 / 29 通过** |
 | `npm run build` | ✓ built in 25.82s |
 | Electron 启动 | ✓ `npm run electron:dev` 后窗口标题 `o-hino`，Vite 5173 返回 200，5 个进程，数据目录初始化 |
+| Vite watch 冲突修复 | ✓ 加 `server.watch.ignored: ["**/app-data/**"]` 后重启，日志无 `EBUSY`、无 `vite exited with code 1`、无 `ERR_CONNECTION_REFUSED`，进程持续存活 |
 | 配置迁移脚本 | ✓ 模拟旧配置清理 + 幂等验证通过 |
 
 **仍未验证**：Harness 页面的 sidecar 启动与插件加载（需要在 UI 里点启动并配置模型）。详见 `TESTING-DSH-0.2.md` 第 3、4 层。

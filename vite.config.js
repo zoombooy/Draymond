@@ -54,6 +54,14 @@ export default defineConfig(() => ({
   server: {
     port: 5173,
     strictPort: true,
+    // 开发环境下 Electron 把 userData（含被锁定的 leveldb 临时文件）、
+    // 日志、knowledge 等运行时数据写在项目内的 app-data/ 目录。
+    // 若让 chokidar 监听该目录，Electron 锁定 leveldb 时会抛 EBUSY 并
+    // 使 Vite 直接退出（随后 Electron 连不上 5173 → 白屏）。
+    // app-data 不是源码目录，忽略它不影响 HMR。
+    watch: {
+      ignored: ["**/app-data/**"],
+    },
     hmr: {
       protocol: "ws",
       host: "localhost",
