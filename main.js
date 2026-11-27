@@ -27,7 +27,7 @@ const __dirname = path.dirname(__filename)
 const isDev = !app.isPackaged
 
 // Windows 系统通知需与 appId 一致（electron-builder build.appId），否则通知不显示
-app.setAppUserModelId('com.happyfriday.lite')
+app.setAppUserModelId('com.ohino.lite')
 
 // 禁止渲染进程后台化，避免窗口失焦/被遮挡时被系统挂起，切回时卡顿
 app.commandLine.appendSwitch('disable-renderer-backgrounding')
@@ -204,7 +204,7 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   if (!hasSingleInstanceLock) return
-  // happyfriday-office CLI 的 headless 导出请求：跳过全部常规初始化，
+  // ohino-office CLI 的 headless 导出请求：跳过全部常规初始化，
   // 隐藏窗口渲染一次导出后退出（office-headless.js 内部负责 app.exit）
   if (headlessExportRun) {
     try {
