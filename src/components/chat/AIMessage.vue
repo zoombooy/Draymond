@@ -111,7 +111,7 @@ import { electronService } from '@/services/electron';
 
 const props = defineProps({
   content: { type: String, default: '' },
-  displayName: { type: String, default: '周五' },
+  displayName: { type: String, default: 'o-hino' },
   showDivider: { type: Boolean, default: true },
   isStreaming: { type: Boolean, default: false },
   showActions: { type: Boolean, default: true },
