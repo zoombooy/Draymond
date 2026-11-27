@@ -548,7 +548,7 @@ const handlePreferredModelClick = () => {
 const selectModel = (model) => {
   selectedModel.value = model.id;
   showModelDropdown.value = false;
-  localStorage.setItem('happy-friday-selected-model', model.id);
+  localStorage.setItem('o-hino-selected-model', model.id);
   syncModelsToConfig();
 };
 
@@ -599,7 +599,7 @@ const executeDelete = () => {
     } else {
       selectedModel.value = '';
     }
-    localStorage.setItem('happy-friday-selected-model', selectedModel.value);
+    localStorage.setItem('o-hino-selected-model', selectedModel.value);
   }
 
   showDeleteConfirm.value = false;
@@ -722,7 +722,7 @@ onDeactivated(() => {
   showDeleteConfirm.value = false;
 });
 
-const STORAGE_KEY = 'happy-friday-custom-models';
+const STORAGE_KEY = 'o-hino-custom-models';
 
 const loadCustomModels = () => {
   try {
@@ -730,7 +730,7 @@ const loadCustomModels = () => {
     if (stored) {
       customModels.value = JSON.parse(stored);
     }
-    const savedSelected = localStorage.getItem('happy-friday-selected-model');
+    const savedSelected = localStorage.getItem('o-hino-selected-model');
     if (savedSelected) {
       // 已保存的首选模型：仅匹配自定义模型
       if (customModels.value.find(m => m.id === savedSelected)) {
@@ -934,7 +934,7 @@ const handleSave = () => {
       saveCustomModels();
       // 新增模型后自动选为首选模型
       selectedModel.value = newModel.id;
-      localStorage.setItem('happy-friday-selected-model', newModel.id);
+      localStorage.setItem('o-hino-selected-model', newModel.id);
       syncModelsToConfig();
     }
     closeModal();
