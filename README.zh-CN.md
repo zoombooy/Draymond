@@ -1,6 +1,6 @@
-# Happy Friday Lite
+# o-hino
 
-[English](README.md)
+[English](README.en.md)
 
 一个基于 Electron + Vue 3 的桌面端个人知识智能助手。集成 AI Agent、RAG 知识检索、富文本笔记、日程日历于一体，所有数据本地存储，隐私优先。
 
@@ -175,7 +175,7 @@ npm run electron:build:arm64
 ## 📂 项目结构
 
 ```text
-happy-friday-lite/
+o-hino/
 ├── main.js                  # Electron 主进程入口
 ├── preload.cjs              # 预加载脚本
 ├── src/                     # Vue 前端源码
