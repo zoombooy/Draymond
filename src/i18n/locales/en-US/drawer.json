@@ -90,7 +90,9 @@
       "MEMORY": "Long-term Memory",
       "MEMORY_desc": "Cross-session facts and events",
       "Agent": "Experience",
-      "Agent_desc": "Experience and tips Friday accumulates"
+      "Agent_desc": "Experience and tips Friday accumulates",
+      "HARNESS": "Session Notes",
+      "HARNESS_desc": "Notes projected from DeepSeek Harness sessions"
     }
   },
   "comingSoon": "Coming soon",
