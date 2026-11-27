@@ -381,7 +381,7 @@ function escapeHtml(str) {
 }
 
 // 视图偏好持久化：在 localStorage 中保留用户的视图模式与排序选择
-const VIEW_PREFS_KEY = 'happy-friday-kb-view-prefs';
+const VIEW_PREFS_KEY = 'o-hino-kb-view-prefs';
 function loadViewPrefs() {
   try {
     const raw = localStorage.getItem(VIEW_PREFS_KEY);
@@ -627,12 +627,12 @@ function closeChatDialog() {
 
 function loadModelConfig(modelId) {
   try {
-    const stored = localStorage.getItem('happy-friday-custom-models');
+    const stored = localStorage.getItem('o-hino-custom-models');
     if (stored) {
       const models = JSON.parse(stored);
       let model = models.find(m => m.id === modelId);
       if (!model && models.length > 0) {
-        const selectedId = localStorage.getItem('happy-friday-selected-model');
+        const selectedId = localStorage.getItem('o-hino-selected-model');
         model = selectedId ? models.find(m => m.id === selectedId) : models[0];
       }
       return model || null;
