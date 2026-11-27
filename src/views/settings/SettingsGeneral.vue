@@ -429,7 +429,7 @@
       </div>
     </div>
 
-    <!-- 关于 Happy Friday 弹窗 -->
+    <!-- 关于 o-hino 弹窗 -->
     <Teleport to="body">
       <div v-if="showAboutModal" class="info-modal-overlay" @click.self="showAboutModal = false">
         <div class="info-modal-container">
@@ -441,9 +441,9 @@
           </button>
           <div class="about-modal-body">
             <div class="about-logo">
-              <img :src="aboutLogo" alt="Happy Friday" class="about-logo-img" />
+              <img :src="aboutLogo" alt="o-hino" class="about-logo-img" />
             </div>
-            <h2 class="about-title">Happy Friday</h2>
+            <h2 class="about-title">o-hino</h2>
             <p class="about-version">{{ t('settings.version') }} {{ appVersion }}</p>
             <p class="about-desc">{{ t('settings.aboutDesc') }}</p>
             <div class="about-links">
@@ -1503,7 +1503,7 @@ const goToModuleSettings = () => {
 };
 
 // ========== 关于 / 功能介绍 / 帮助与反馈 ==========
-const HELP_URL = 'https://github.com/cheney-plus/happy-friday-electron';
+const HELP_URL = 'https://github.com/cheney-plus/o-hino-electron';
 
 const showAboutModal = ref(false);
 const showFeaturesModal = ref(false);
