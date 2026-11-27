@@ -9,7 +9,7 @@
  * 本文件不依赖 Electron / LangChain / zod，纯函数便于 node:test 验证。
  */
 
-export const MCP_SERVER_NAME = 'happy-friday'
+export const MCP_SERVER_NAME = 'o-hino'
 
 /**
  * @param {Array<{name:string, description?:string, meta?:Object}>} definitions
