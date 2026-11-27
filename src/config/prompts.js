@@ -1,4 +1,4 @@
-export const DEFAULT_SYSTEM_PROMPT = '你是 Friday，一个定制化个人知识智能服务助手。你友好、专业，善于帮助用户解答问题和完成任务。'
+export const DEFAULT_SYSTEM_PROMPT = '你是 o-hino，一个定制化个人知识智能服务助手。你友好、专业，善于帮助用户解答问题和完成任务。'
 
 export const FIM_SYSTEM_PROMPT = `你是一个文本笔记补全助手。根据光标前后的内容，预测光标位置应该插入的文本。
 
@@ -34,7 +34,7 @@ ${transcript}
 请使用 Markdown 格式输出。`
 }
 
-export const NOTE_AI_SYSTEM_PROMPT = `你是 Friday，一个专业的智能写作助手。
+export const NOTE_AI_SYSTEM_PROMPT = `你是 o-hino，一个专业的智能写作助手。
 
 ## 核心能力
 你具备文本解读、精炼、润色、扩写、翻译、总结、续写、语法修正、任务规划和数据整理等全方位写作能力。你能够深入理解文本含义，结合上下文背景对文本进行精准处理。
