@@ -173,9 +173,9 @@ function useSuggestion(text) {
 }
 
 function loadModelConfig() {
-  const selectedId = localStorage.getItem('happy-friday-selected-model');
+  const selectedId = localStorage.getItem('o-hino-selected-model');
   try {
-    const stored = localStorage.getItem('happy-friday-custom-models');
+    const stored = localStorage.getItem('o-hino-custom-models');
     if (stored) {
       const models = JSON.parse(stored);
       let model = selectedId ? models.find(m => m.id === selectedId) : null;
