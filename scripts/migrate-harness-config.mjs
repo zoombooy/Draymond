@@ -27,8 +27,10 @@ const REMOVED_BUNDLE = '@deepseek-ai/dsh-experimental-schedule-bundle'
 
 /** 判断一个 patch 条目是否引用了 0.2.x 已移除的运行时不变式插件 */
 export function isRemovedInvariantLine(line) {
-  if (/^\s*-\s+name:\s*['"]?@deepseek-ai\/dsh-invariants['"]?/.test(line)) return true
-  if (/^\s*-\s+name:\s*['"][^'"]*\/invariant['"]?\s*$/.test(line)) return true
+  // 条目首行可能是 `- name: ...`，也可能是 `- id: ...` 后由第二行的
+  // `name:` 给出模块名，两种写法都要识别。
+  if (/^\s*(?:-\s*)?name:\s*['"]?@deepseek-ai\/dsh-invariants['"]?/.test(line)) return true
+  if (/^\s*(?:-\s*)?name:\s*['"][^'"]*\/invariant['"]?\s*$/.test(line)) return true
   const id = line.match(/\bid:\s*['"]?([a-z-]+)['"]?/)
   return Boolean(id && REMOVED_IDS.has(id[1]))
 }
@@ -40,7 +42,9 @@ export function isTimeContextLine(line) {
 
 /**
  * 按缩进取出的 YAML 列表项，递归过滤掉匹配 matcher 的条目。
- * 只依据条目首行判断，避免误删包含嵌套 insert 的父块。
+ * 对每个条目，首行与紧随其后的属性行（缩进更深但不属于子列表）都会交给
+ * matcher 判断，因此 `name:` 写在第二行时也能识别；但仍不会误删仅因子
+ * 列表命中而保留的父块。
  * @param {string[]} lines
  * @param {number} baseIndent
  * @param {(line: string) => boolean} matcher
@@ -66,7 +70,15 @@ export function filterYamlItems(lines, baseIndent, matcher) {
       i += 1
     }
     const block = lines.slice(start, i)
-    if (matcher(block[0])) continue
+    // 条目首行 + 该条目自身的属性行（不含子列表项，子列表交给递归）
+    const selfLines = block.filter((line, index) => {
+      if (index === 0) return true
+      // 只取条目的直接属性行：缩进恰好比列表项多一级，且不是新的列表项。
+      // 更深缩进属于子列表，交给递归判断，避免父块被子项连坐删除。
+      const indent = line.match(/^(\s*)/)[1].length
+      return indent === baseIndent + 2 && !/^\s*-\s/.test(line) && line.trim() !== ''
+    })
+    if (selfLines.some(matcher)) continue
     result.push(...filterYamlItems(block, baseIndent + 2, matcher))
   }
   return result
