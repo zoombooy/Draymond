@@ -55,4 +55,7 @@ release/
 !README.md
 !README.zh-CN.md
 !AGENTS.md
+!MIGRATION-DSH-0.2.md
+!TESTING-DSH-0.2.md
+!INSTALL-AND-RUN.md
 .codegraph/
