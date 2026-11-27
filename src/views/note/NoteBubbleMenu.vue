@@ -356,9 +356,9 @@ let unlistenNoteAIDone = null;
 let unlistenNoteAIError = null;
 
 function loadModelConfig() {
-  const selectedId = localStorage.getItem('happy-friday-selected-model');
+  const selectedId = localStorage.getItem('o-hino-selected-model');
   try {
-    const raw = localStorage.getItem('happy-friday-custom-models');
+    const raw = localStorage.getItem('o-hino-custom-models');
     if (raw) {
       const models = JSON.parse(raw);
       let model = null;
