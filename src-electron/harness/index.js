@@ -9,6 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'url'
 import yaml from 'js-yaml'
 import { getDataDir, loadConfig } from '../config.js'
 import { normalizeOpenAIBaseUrl } from '../openaiUrl.js'
+import { ensureMemoryFiles, getMemoryDir } from '../agent/memoryFiles.js'
 import { clearHarnessCredentialLock } from './lockRecovery.js'
 import {
   acquireLocalMcpServer,
@@ -68,8 +69,11 @@ function harnessPaths() {
     settings: path.join(root, 'home', 'settings.yaml'),
     credentials: path.join(root, 'home', '.credentials.yaml'),
     patch: path.join(root, 'home', 'happy-friday.patch.yml'),
-    // 审批插件随应用一起打包，不再复制到 DSH home，避免版本漂移。
-    approvalPlugin: path.resolve(__dirname, '..', '..', 'plugins', 'happy-friday-tools', 'index.js')
+    // 插件随应用一起打包，不再复制到 DSH home，避免版本漂移。
+    approvalPlugin: path.resolve(__dirname, '..', '..', 'plugins', 'happy-friday-tools', 'index.js'),
+    knowledgePlugin: path.resolve(__dirname, '..', '..', 'plugins', 'happy-friday-knowledge', 'index.js'),
+    // Harness 会话摘录写入 Friday 的 /memories/ 目录，另一套 Agent 也能读到。
+    memoryFile: path.join(getMemoryDir(), 'HARNESS.md')
   }
 }
 
@@ -221,6 +225,8 @@ function mcpToolConfiguration() {
 function syncConfiguration(model, mcpUrl) {
   const paths = harnessPaths()
   ensureHarnessDirectories(paths)
+  // 确保 /memories/HARNESS.md 存在，插件只需覆盖标记之间的段落
+  ensureMemoryFiles()
   const theme = themePreference()
   const locale = localePreference()
 
@@ -293,6 +299,22 @@ function syncConfiguration(model, mcpUrl) {
           name: pathToFileURL(paths.approvalPlugin).href,
           inject: ['tools'],
           config: approvalConfig
+        },
+        {
+          id: 'happy-friday-knowledge',
+          name: pathToFileURL(paths.knowledgePlugin).href,
+          inject: ['agents', 'tools'],
+          config: {
+            toolName: `mcp__${MCP_SERVER_NAME}__retrieve_knowledge`,
+            topK: 3,
+            maxChars: 4000,
+            maxSnippetChars: 3000,
+            preStepTimeoutMs: 1500,
+            maxEntries: 40,
+            // 默认不把用户原话写进长期记忆，避免隐私内容落盘
+            captureUser: false,
+            memoryFile: paths.memoryFile
+          }
         }
       ]
     }
