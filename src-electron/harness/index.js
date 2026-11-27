@@ -22,6 +22,13 @@ import {
   buildHarnessToolManifest,
   buildApprovalPolicyConfig
 } from './toolBridge.js'
+import {
+  sdkPrompt,
+  sdkRuntimeStatus,
+  sdkWait,
+  startSdkRuntime,
+  stopSdkRuntime
+} from './sdkRuntime.js'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -35,6 +42,9 @@ const START_TIMEOUT_MS = 90_000
 
 let mainWindow = null
 let sidecar = null
+let sdkRuntime = null
+let sdkStartPromise = null
+let sdkMcpAcquired = false
 let startPromise = null
 let generation = 0
 let activeModelSignature = null
@@ -630,10 +640,84 @@ export async function syncHarnessConfigurationIfRunning() {
   }
 }
 
+// ========== P3 SDK 实验通道 ==========
+// 与 web sidecar 并行，默认不启用。只有渲染进程显式调用 harness-sdk-start
+// 才会拉起 `dsh --profile sdk` 子进程；两条通道共用同一份 DSH home/settings，
+// 因此 P1 工具审批与 P2 知识注入插件无需改动即可复用。
+
+function sdkEventToRenderer(entry) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('harness-sdk-event', entry)
+  }
+}
+
+async function startSdkChannel() {
+  if (sdkRuntime && sdkRuntime.status === 'ready') return sdkRuntimeStatus(sdkRuntime)
+  if (sdkStartPromise) return sdkStartPromise
+
+  sdkStartPromise = (async () => {
+    let model
+    try {
+      model = selectedModel()
+    } catch (error) {
+      return { status: error.code === 'HARNESS_MODEL_REQUIRED' ? 'config-required' : 'error', error: error.message }
+    }
+
+    try {
+      const mcp = await acquireLocalMcpServer(HARNESS_CONSUMER)
+      sdkMcpAcquired = true
+      const mcpStatus = getLocalMcpStatus()
+      if (!mcp.success || !mcpStatus.url) throw new Error('o-hino MCP server failed to start')
+
+      syncConfiguration(model, mcpStatus.url)
+      const paths = harnessPaths()
+      clearHarnessCredentialLock(paths.credentials)
+
+      sdkRuntime = await startSdkRuntime({
+        cli: resolveHarnessCli(),
+        paths,
+        model,
+        onEvent: sdkEventToRenderer,
+        onOutput: line => console.log(`[Harness SDK] ${line}`)
+      })
+      return sdkRuntimeStatus(sdkRuntime)
+    } catch (error) {
+      if (sdkMcpAcquired) {
+        await releaseLocalMcpServer(HARNESS_CONSUMER).catch(() => {})
+        sdkMcpAcquired = false
+      }
+      sdkRuntime = null
+      const status = { status: 'error', error: error.message || String(error) }
+      sdkEventToRenderer({ role: 'system', text: status.error })
+      return status
+    } finally {
+      sdkStartPromise = null
+    }
+  })()
+
+  return sdkStartPromise
+}
+
+async function stopSdkChannel() {
+  const runtime = sdkRuntime
+  sdkRuntime = null
+  await stopSdkRuntime(runtime)
+  if (sdkMcpAcquired) {
+    await releaseLocalMcpServer(HARNESS_CONSUMER).catch(() => {})
+    sdkMcpAcquired = false
+  }
+  return sdkRuntimeStatus(null)
+}
+
 export function registerHarnessCommands(window) {
   mainWindow = window
   ipcMain.handle('harness-start', () => startHarnessSidecar())
   ipcMain.handle('harness-status', () => publicStatus())
   ipcMain.handle('harness-restart', () => restartHarnessSidecar())
   ipcMain.handle('harness-sync-config', () => syncHarnessConfigurationIfRunning())
+  ipcMain.handle('harness-sdk-start', () => startSdkChannel())
+  ipcMain.handle('harness-sdk-status', () => sdkRuntimeStatus(sdkRuntime))
+  ipcMain.handle('harness-sdk-prompt', (_event, text, options) => sdkPrompt(sdkRuntime, text, options || {}))
+  ipcMain.handle('harness-sdk-wait', (_event, options) => sdkWait(sdkRuntime, options || {}))
+  ipcMain.handle('harness-sdk-stop', () => stopSdkChannel())
 }

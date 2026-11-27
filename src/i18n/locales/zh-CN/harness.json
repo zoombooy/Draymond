@@ -12,5 +12,19 @@
   "restart": "重启 Harness",
   "openExternal": "在浏览器中打开",
   "toolCount": "{count} 个 o-hino 工具",
-  "noModel": "未选择模型"
+  "noModel": "未选择模型",
+  "sdkMode": "SDK 实验模式",
+  "sdkWebMode": "Web 模式",
+  "sdkHint": "实验通道：直接通过 JSON-RPC 连接 Harness 内核，不加载 iframe。P1 工具审批与 P2 知识插件同样生效。",
+  "sdkStarting": "正在启动 SDK 通道",
+  "sdkReady": "SDK 通道已就绪",
+  "sdkDisconnected": "SDK 通道未连接",
+  "sdkStart": "启动 SDK 通道",
+  "sdkStop": "停止 SDK 通道",
+  "sdkInputPlaceholder": "输入消息，回车发送",
+  "sdkSend": "发送",
+  "sdkEmpty": "尚无消息。发送一条消息开始验证 SDK 通道。",
+  "sdkRoleUser": "你",
+  "sdkRoleAssistant": "助手",
+  "sdkRoleSystem": "系统"
 }

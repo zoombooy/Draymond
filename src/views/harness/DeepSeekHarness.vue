@@ -1,5 +1,28 @@
 <template>
   <section class="harness-view">
+    <div class="harness-toolbar">
+      <div class="mode-switch" role="tablist" :aria-label="t('harness.title')">
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="mode === 'web'"
+          :class="['mode-tab', { active: mode === 'web' }]"
+          @click="switchMode('web')"
+        >{{ t('harness.sdkWebMode') }}</button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="mode === 'sdk'"
+          :class="['mode-tab', { active: mode === 'sdk' }]"
+          @click="switchMode('sdk')"
+        >{{ t('harness.sdkMode') }}</button>
+      </div>
+      <span v-if="mode === 'sdk'" class="sdk-status" :class="sdkState.status">
+        {{ sdkStatusLabel }}
+      </span>
+    </div>
+
+    <template v-if="mode === 'web'">
     <iframe
       v-if="status.status === 'ready' && status.url"
       :key="frameKey"
@@ -36,11 +59,46 @@
         </button>
       </div>
     </div>
+    </template>
+
+    <div v-else class="sdk-view">
+      <div class="sdk-hint">{{ t('harness.sdkHint') }}</div>
+
+      <div v-if="sdkState.status !== 'ready'" class="sdk-connect">
+        <button class="command-button" :disabled="sdkState.status === 'starting'" @click="startSdkChannel">
+          {{ sdkState.status === 'starting' ? t('harness.sdkStarting') : t('harness.sdkStart') }}
+        </button>
+        <p v-if="sdkState.error" class="error-message">{{ sdkState.error }}</p>
+      </div>
+
+      <div v-else class="sdk-session">
+        <div class="sdk-messages" ref="messagesEl">
+          <p v-if="sdkMessages.length === 0" class="sdk-empty">{{ t('harness.sdkEmpty') }}</p>
+          <div v-for="(item, index) in sdkMessages" :key="index" :class="['sdk-message', `is-${item.role}`]">
+            <span class="sdk-role">{{ roleLabel(item.role) }}</span>
+            <div class="sdk-text">{{ item.text }}</div>
+          </div>
+        </div>
+        <div class="sdk-composer">
+          <input
+            v-model="sdkInput"
+            class="sdk-input"
+            :placeholder="t('harness.sdkInputPlaceholder')"
+            :disabled="sdkBusy"
+            @keydown.enter.exact.prevent="sendSdkMessage"
+          />
+          <button class="command-button sdk-send" :disabled="sdkBusy || !sdkInput.trim()" @click="sendSdkMessage">
+            {{ t('harness.sdkSend') }}
+          </button>
+          <button class="command-button" @click="stopSdkChannel">{{ t('harness.sdkStop') }}</button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
 <script setup>
-import { onActivated, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onActivated, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import {
@@ -64,6 +122,89 @@ const status = ref({
 
 let unlistenStatus = null
 let statusSyncPromise = null
+
+// ---- P3 SDK 实验通道 ----
+const mode = ref('web')
+const sdkState = ref({ status: 'idle', error: null, sessionId: null })
+const sdkMessages = ref([])
+const sdkInput = ref('')
+const sdkBusy = ref(false)
+const messagesEl = ref(null)
+let unlistenSdkEvent = null
+
+const sdkStatusLabel = computed(() => {
+  const labels = {
+    ready: t('harness.sdkReady'),
+    starting: t('harness.sdkStarting'),
+    idle: t('harness.sdkDisconnected'),
+    stopped: t('harness.sdkDisconnected')
+  }
+  return labels[sdkState.value.status] || sdkState.value.status
+})
+
+function roleLabel(role) {
+  const keys = { user: 'sdkRoleUser', assistant: 'sdkRoleAssistant', system: 'sdkRoleSystem' }
+  return t(`harness.${keys[role] || 'sdkRoleSystem'}`)
+}
+
+async function scrollMessagesToBottom() {
+  await nextTick()
+  if (messagesEl.value) messagesEl.value.scrollTop = messagesEl.value.scrollHeight
+}
+
+function switchMode(next) {
+  if (mode.value === next) return
+  mode.value = next
+  if (next === 'sdk') refreshSdkStatus()
+}
+
+async function refreshSdkStatus() {
+  const current = await electronService.invoke('harness-sdk-status')
+  if (current) sdkState.value = { ...sdkState.value, ...current }
+}
+
+async function startSdkChannel() {
+  sdkState.value = { ...sdkState.value, status: 'starting', error: null }
+  const next = await electronService.invoke('harness-sdk-start')
+  if (next) {
+    sdkState.value = { ...sdkState.value, ...next }
+    if (next.status !== 'ready' && next.error) sdkMessages.value.push({ role: 'system', text: next.error })
+  } else {
+    sdkState.value = { ...sdkState.value, status: 'error', error: t('harness.unknownError') }
+  }
+}
+
+async function stopSdkChannel() {
+  await electronService.invoke('harness-sdk-stop')
+  sdkState.value = { status: 'idle', error: null, sessionId: null }
+}
+
+async function sendSdkMessage() {
+  const text = sdkInput.value.trim()
+  if (!text || sdkBusy.value || sdkState.value.status !== 'ready') return
+  sdkInput.value = ''
+  sdkMessages.value.push({ role: 'user', text })
+  await scrollMessagesToBottom()
+  sdkBusy.value = true
+  try {
+    const result = await electronService.invoke('harness-sdk-prompt', text)
+    if (result?.error) sdkMessages.value.push({ role: 'system', text: String(result.error) })
+    await electronService.invoke('harness-sdk-wait')
+  } catch (error) {
+    sdkMessages.value.push({ role: 'system', text: error?.message || String(error) })
+  } finally {
+    sdkBusy.value = false
+    await scrollMessagesToBottom()
+  }
+}
+
+function handleSdkEvent(event) {
+  const payload = event?.payload
+  if (!payload || typeof payload.text !== 'string') return
+  sdkMessages.value.push(payload)
+  if (sdkMessages.value.length > 200) sdkMessages.value.shift()
+  scrollMessagesToBottom()
+}
 
 async function startHarness() {
   status.value = { ...status.value, status: 'starting', error: null }
@@ -105,7 +246,9 @@ onMounted(() => {
   unlistenStatus = electronService.listen('harness-status-changed', event => {
     status.value = event.payload
   })
+  unlistenSdkEvent = electronService.listen('harness-sdk-event', handleSdkEvent)
   syncHarnessStatus()
+  refreshSdkStatus()
 })
 
 onActivated(() => {
@@ -114,6 +257,7 @@ onActivated(() => {
 
 onUnmounted(() => {
   if (unlistenStatus) unlistenStatus()
+  if (unlistenSdkEvent) unlistenSdkEvent()
 })
 </script>
 
@@ -128,6 +272,52 @@ onUnmounted(() => {
   background: var(--bg-primary);
 }
 
+.harness-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.mode-switch {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+}
+
+.mode-tab {
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.mode-tab.active {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.sdk-status {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.sdk-status.ready {
+  color: var(--success-color, #16a34a);
+}
+
+.sdk-status.error {
+  color: var(--error-color, #dc2626);
+}
+
 .harness-frame {
   display: block;
   width: 100%;
@@ -135,6 +325,113 @@ onUnmounted(() => {
   min-height: 0;
   border: 0;
   background: #fff;
+}
+
+.sdk-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  gap: 12px;
+}
+
+.sdk-hint {
+  flex: 0 0 auto;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-tertiary);
+}
+
+.sdk-connect {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.sdk-session {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sdk-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.sdk-empty {
+  margin: auto;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.sdk-message {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 88%;
+  align-self: flex-start;
+}
+
+.sdk-message.is-user {
+  align-self: flex-end;
+}
+
+.sdk-role {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.sdk-text {
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.sdk-message.is-user .sdk-text {
+  background: var(--accent-bg, var(--bg-hover));
+}
+
+.sdk-composer {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.sdk-input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.sdk-send {
+  margin-top: 0;
 }
 
 .harness-state {

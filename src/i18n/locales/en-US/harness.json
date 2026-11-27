@@ -12,5 +12,19 @@
   "restart": "Restart Harness",
   "openExternal": "Open in browser",
   "toolCount": "{count} o-hino tools",
-  "noModel": "No model selected"
+  "noModel": "No model selected",
+  "sdkMode": "SDK experiment",
+  "sdkWebMode": "Web mode",
+  "sdkHint": "Experimental channel: talks to the Harness core over JSON-RPC without loading an iframe. P1 approval and P2 knowledge plugins still apply.",
+  "sdkStarting": "Starting the SDK channel",
+  "sdkReady": "SDK channel ready",
+  "sdkDisconnected": "SDK channel disconnected",
+  "sdkStart": "Start SDK channel",
+  "sdkStop": "Stop SDK channel",
+  "sdkInputPlaceholder": "Type a message and press Enter",
+  "sdkSend": "Send",
+  "sdkEmpty": "No messages yet. Send one to verify the SDK channel.",
+  "sdkRoleUser": "You",
+  "sdkRoleAssistant": "Assistant",
+  "sdkRoleSystem": "System"
 }
