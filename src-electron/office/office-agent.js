@@ -44,7 +44,7 @@ function officeCliBundle() {
   const root = app.isPackaged
     ? path.join(process.resourcesPath, 'office')
     : path.resolve(__dirname, '..', '..', 'resources', 'office')
-  return path.join(root, 'cli', 'happyfriday-office.cjs')
+  return path.join(root, 'cli', 'ohino-office.cjs')
 }
 
 /** 当前正在可视化编辑器中打开的文件（绝对路径） */
@@ -298,7 +298,7 @@ registerTool({
 registerTool({
   name: 'office_batch',
   description:
-    '对 Agent 沙箱内的一批文件批量生成或修改：透传 happyfriday-office CLI 参数（如 batch 子命令），' +
+    '对 Agent 沙箱内的一批文件批量生成或修改：透传 ohino-office CLI 参数（如 batch 子命令），' +
     'cwd 为沙箱目录。写操作，需用户审批；正在编辑器中打开的文件会被拒绝写入。',
   schema: z.object({
     args: z.array(z.string()).min(1).describe('CLI 参数列表（不含程序名），例如 ["batch","--spec","jobs.json"]'),
