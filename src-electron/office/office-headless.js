@@ -3,7 +3,7 @@
  * ====================================================================
  *   <app binary> --headless-export <input> --to <format> --out <path> [--json]
  *
- * happyfriday-office CLI 的 pdf/docx/html 导出（convert / create --type pdf）
+ * ohino-office CLI 的 pdf/docx/html 导出（convert / create --type pdf）
  * 需要宿主应用以隐藏窗口运行与 GUI 完全相同的渲染管线。CLI 会自动 spawn
  * 本应用二进制并携带上述参数；本模块在 app ready 前解析 argv，ready 后
  * 跳过所有常规初始化，仅执行一次导出并退出（退出码 0/1/2/3）。
