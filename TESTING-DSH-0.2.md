@@ -17,7 +17,7 @@ npm install --legacy-peer-deps
 
 `postinstall` 会自动跑三个修复脚本（`fix-langgraph-sdk` / `fix-dsh-directory-picker-electron` / `dedupe-nested-deps`），任何一个报错都不要跳过，先记下来。
 
-> 当前开发机访问不了 npm registry，所以这一层还没做过实测。如果你那边也装不上，可以先把第 1、2 层做掉，它们不需要 `node_modules`。
+> **实测（2026-11-27）**：官方 registry 不通，改用 `https://registry.npmmirror.com`。另外 `npm install --legacy-peer-deps` 不会装 DSH 内部 peer 包（`autoInstallPeers: false`），必须用一条命令把全部内部包一次性装上——注意 `--no-save` 的包会被下一次 install 清掉，不能分多次装。Windows 上跳过 `dsh-cua-macos`（仅 darwin）和 `libreoffice-kit-*` / `node-addon-system-*` 的跨平台二进制，其余缺失包实测清单见文末「本轮实测记录」。
 
 ## 第 1 层：纯逻辑单元测试（零依赖）
 
@@ -28,7 +28,7 @@ node --test scripts/tests/migrate-harness-config.test.mjs \
          scripts/tests/knowledge-plugin.test.mjs
 ```
 
-**预期**：24 个用例全通过。
+**预期**：23 个用例全通过（实测 23/23，2026-11-27）。
 
 这三个文件覆盖：旧配置清理规则（含 `name:` 写在第二行的条目）、工具清单与审批决策、知识注入正文构造、工具结果解析、`agent.inject()` 与主轮次合并的互斥逻辑、`HARNESS.md` 幂等投影。
 
@@ -141,3 +141,53 @@ npm run electron:dev
 4. `npm install` / `npm run build` / Electron 打包在 Node 24 + 新依赖下的完整兼容性。
 
 把这几项的结果发回来，我按实测情况修正代码，再把 P1b（原生 `ctx.tools` 注册）或 P3（SDK 宿主化替换 iframe）接上。
+
+---
+
+## 本轮实测记录（2026-11-27）
+
+模型已配置为 `deepseek-flash` / `https://api.deepseek.com`。按依赖顺序实测后，Harness 在本机**仍无法从 Electron 启动**，定位到两个独立阻塞，均与模型无关：
+
+### 阻塞 1：Electron 运行时指纹不被 DSH 原生模块接受（主因）
+
+- 现象：`[Harness] Startup failed`，host preparation 第一步就崩。
+- 根因：Harness 用 `process.execPath`（Electron 二进制）+ `ELECTRON_RUN_AS_NODE=1` 启动 dsh CLI（`src-electron/harness/index.js:536`、`sdkRuntime.js:53`）。当前 Electron **42.11.18**（Node 24.19.0），V8 带 `-electron.0` 后缀；DSH 0.2.3 的原生模块只认 **Electron 43.0.0 / 44.x / 45.0.0-alpha.6**。指纹校验在原生层，没有 env 开关可跳过。
+- 佐证：改用标准 Node 24.22.3 启动同一个 dsh CLI，原生模块 `requireBuiltin('fs')` 正常，dsh web 正常监听端口——证明代码路径没问题，纯粹是 Electron 版本指纹问题。
+- 修复：`package.json` 的 `electron` 从 `^42.2.0` 升到 `^43.0.0`（npmmirror 上 43.0.0 win32-x64 zip 可用，约 150 MB），重装依赖后重启。这是 P0 版本对齐当初漏改的一项。**未在本轮执行**——需停机重装，会中断当前运行中的应用。
+
+### 阻塞 2：DSH profile 的 peer 依赖从未安装（已修复）
+
+- 现象：首次标准 Node 探测报 56 个插件加载失败，缺 `@deepseek-ai/dsh-scope` / `dsh-sandbox` / `dsh-error` 等内部包。
+- 根因：profile 的 `pnpm-workspace.yaml` 设了 `autoInstallPeers: false`，且主项目安装时用了 `--legacy-peer-deps`，DSH 的 peer 包（均要求 `0.2.3-alpha.2`）从未进入 `profiles/node_modules`。
+- 修复：用一条 `npm install --no-save --legacy-peer-deps` 命令装齐 23 个内部包 + `@modelcontextprotocol/client@2.2.0` / `core@2.2.0`。关键点：
+  - `--no-save` 的包会被**下一次** `npm install` prune 掉，所以必须一次性列全，不能分多次补；
+  - 中途被 SIGTERM 中断会留下残缺包（当时 `client/dist/index.mjs` 只有 `.map` 没有本体，导致 `ERR_MODULE_NOT_FOUND`），重装即可；
+  - `dsh-cua-macos`（darwin）、`libreoffice-kit-*` / `node-addon-system-*` 的 darwin/linux/arm64 二进制在 Windows x64 上用不到，可跳过。
+- 结果：内部包真实缺失数从 23 降到 **0**。
+
+### 修复后的 dsh 独立探测结果
+
+```
+dsh: warning: 1 entry did not activate
+mcp-o-hino (@deepseek-ai/dsh-mcp-client): ... ECONNREFUSED 127.0.0.1:17891
+dsh web: http://127.0.0.1:15996/?token=...
+```
+
+只剩 `mcp-o-hino` 一个未激活，且是**预期内**的：它要连 o-hino 主进程开的 MCP 服务（17891），独立探测时没有 Electron 主进程，必然拒绝连接。其余插件全部激活，dsh web 正常监听——说明在 Electron 42 问题解决后，插件树本身是健康的。
+
+### 本轮已确认通过
+
+| 项 | 结果 |
+|---|---|
+| 第 1 层纯逻辑单测 | 23/23 通过 |
+| 配置迁移实测 | 幂等通过（临时目录） |
+| patch 三项 | `mcp-o-hino` / `o-hino-tool-approval` / `o-hino-knowledge` 均在 `o-hino.patch.yml` |
+| `HARNESS.md` 投影 | 文件已生成，标记对齐全，内容为空（尚无成功会话） |
+| bundle 注册表 | `bundles.json` 为空（默认），符合未添加第三方 bundle 状态 |
+| 标准 Node 下 dsh 启动 | 成功监听端口，插件树仅 1 个预期内未激活 |
+
+### 仍待实测（需先修复 Electron 版本）
+
+- 第 3 层：应用内点启动后状态是否 `ready`、`toolCount` 是否 > 0、iframe 是否不再 401。
+- 第 4 层：P1 审批弹窗、P2 首轮知识注入、`HARNESS.md` 会话投影、bundle 启停。
+- `ctx.tools.execute()` 返回形状、`ctx.agents.currentInitiator()` 在 pre-step 的可用性（需真实会话才能确认）。
