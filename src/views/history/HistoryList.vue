@@ -515,11 +515,11 @@ const showSaveToast = (message) => {
 
 const loadModelConfig = () => {
   try {
-    const stored = localStorage.getItem('happy-friday-custom-models');
+    const stored = localStorage.getItem('o-hino-custom-models');
     if (!stored) return null;
     const models = JSON.parse(stored);
     const findById = (id) => id ? models.find(m => m.id === id) : null;
-    return findById(localStorage.getItem('happy-friday-selected-model')) || models[0] || null;
+    return findById(localStorage.getItem('o-hino-selected-model')) || models[0] || null;
   } catch (e) {
     return null;
   }
@@ -562,10 +562,10 @@ const handleRowMenuSaveAsNote = async (session) => {
       .map(msg => {
         if (msg.role === 'user') return `【用户】${msg.content}`;
         if (msg.role === 'assistant') {
-          if (msg.content) return `【周五】${msg.content}`;
+          if (msg.content) return `【o-hino】${msg.content}`;
           if (msg.metadata?.segments) {
             const textParts = msg.metadata.segments.filter(s => s.type === 'text' && s.content).map(s => s.content);
-            return textParts.length ? `【周五】${textParts.join('\n')}` : '';
+            return textParts.length ? `【o-hino】${textParts.join('\n')}` : '';
           }
           return '';
         }
