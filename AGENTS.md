@@ -70,6 +70,9 @@ npm run electron:build:mac
 - 工具清单只有一处真相：`toolBridge.js` 的 `buildHarnessToolManifest()` 从工具注册表生成 `mcp__happy-friday__*` 名称与审批工具列表；不要在其他文件里另行拼接。
 - 审批策略插件位于 `plugins/happy-friday-tools/`，由 `harness/index.js` 以绝对路径注入 patch；不要再向 DSH home 复制策略文件。
 - 新增 Harness patch 条目时注意 0.2.x 的组合顺序：bundles → profile patch → home patch → `--patch` overlay。
+- 知识库注入插件位于 `plugins/happy-friday-knowledge/`；纯逻辑在 `src-electron/harness/knowledgeBridge.js`，不要把 Electron / db / zod 依赖带进插件。
+- `agent.inject()` 只排队、不唤醒 driver：同轮生效要靠 `agent/pre-step` waterfall 合并消息，且必须调用 `next()`；两者用 `claimed` 标记互斥，避免重复注入。
+- Harness 会话摘录落盘到 `/memories/HARNESS.md`，只改两个标记之间的段落；新增记忆文件时必须同步五处：默认内容、i18n 两份、`getMemoryPaths()`、记忆管理界面白名单。
 
 ### RAG 子系统（src-electron/rag/）
 
