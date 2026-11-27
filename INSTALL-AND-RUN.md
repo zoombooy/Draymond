@@ -125,7 +125,7 @@ env -u NODE_OPTIONS -u ELECTRON_RUN_AS_NODE -u CODEBUDDY_SAFE_DELETE_ENABLED \
   npm run electron:dev
 ```
 
-脚本内部是 `concurrently "vite" "wait-on http://localhost:5173 && electron ."`，会等 Vite 就绪后再启动 Electron。启动成功标志：日志出现 `VITE v6.4.6 ready`、窗口标题变成 `Happy Friday Lite`（不是默认的 `happy-friday-lite`）、`curl http://localhost:5173/` 返回 200。
+脚本内部是 `concurrently "vite" "wait-on http://localhost:5173 && electron ."`，会等 Vite 就绪后再启动 Electron。启动成功标志：日志出现 `VITE v6.4.6 ready`、窗口标题变成 `o-hino`（不是默认的 `o-hino`）、`curl http://localhost:5173/` 返回 200。
 
 **必须清掉 `ELECTRON_RUN_AS_NODE`**：WorkBuddy 客户端自己设了这个变量，不清的话 Electron 会以纯 Node 模式启动，报 `electron does not provide an export named 'BrowserWindow'`。
 
@@ -144,7 +144,7 @@ env -u NODE_OPTIONS -u CODEBUDDY_SAFE_DELETE_ENABLED npm run build
 | DSH CLI `--version` | 0.2.3-alpha.2 |
 | `node --test scripts/tests/*.test.mjs` | **29 / 29 通过** |
 | `npm run build` | ✓ built in 25.82s |
-| Electron 启动 | ✓ `npm run electron:dev` 后窗口标题 `Happy Friday Lite`，Vite 5173 返回 200，5 个进程，数据目录初始化 |
+| Electron 启动 | ✓ `npm run electron:dev` 后窗口标题 `o-hino`，Vite 5173 返回 200，5 个进程，数据目录初始化 |
 | 配置迁移脚本 | ✓ 模拟旧配置清理 + 幂等验证通过 |
 
 **仍未验证**：Harness 页面的 sidecar 启动与插件加载（需要在 UI 里点启动并配置模型）。详见 `TESTING-DSH-0.2.md` 第 3、4 层。
