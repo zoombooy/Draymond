@@ -1,5 +1,5 @@
-export const MODEL_STORAGE_KEY = 'happy-friday-custom-models';
-export const SELECTED_MODEL_KEY = 'happy-friday-selected-model';
+export const MODEL_STORAGE_KEY = 'o-hino-custom-models';
+export const SELECTED_MODEL_KEY = 'o-hino-selected-model';
 
 export const providerIcons = {
   doubao: new URL('@/assets/images/豆包.png', import.meta.url).href,
