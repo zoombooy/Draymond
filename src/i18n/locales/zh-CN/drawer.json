@@ -90,7 +90,9 @@
       "MEMORY": "长期记忆",
       "MEMORY_desc": "跨会话的重要事实与事件",
       "Agent": "经验技巧",
-      "Agent_desc": "Friday 积累的经验与技巧"
+      "Agent_desc": "Friday 积累的经验与技巧",
+      "HARNESS": "会话摘录",
+      "HARNESS_desc": "DeepSeek Harness 会话投影到长期记忆的内容"
     }
   },
   "comingSoon": "功能开发中，敬请期待",
