@@ -47,6 +47,7 @@ python/.cache/
 python/__pycache__/
 
 # Temporary files
+.electron-upgrade/
 *.tmp
 *.temp
 node_modules

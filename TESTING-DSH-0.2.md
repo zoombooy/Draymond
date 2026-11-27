@@ -153,7 +153,9 @@ npm run electron:dev
 - 现象：`[Harness] Startup failed`，host preparation 第一步就崩。
 - 根因：Harness 用 `process.execPath`（Electron 二进制）+ `ELECTRON_RUN_AS_NODE=1` 启动 dsh CLI（`src-electron/harness/index.js:536`、`sdkRuntime.js:53`）。当前 Electron **42.11.18**（Node 24.19.0），V8 带 `-electron.0` 后缀；DSH 0.2.3 的原生模块只认 **Electron 43.0.0 / 44.x / 45.0.0-alpha.6**。指纹校验在原生层，没有 env 开关可跳过。
 - 佐证：改用标准 Node 24.22.3 启动同一个 dsh CLI，原生模块 `requireBuiltin('fs')` 正常，dsh web 正常监听端口——证明代码路径没问题，纯粹是 Electron 版本指纹问题。
-- 修复：`package.json` 的 `electron` 从 `^42.2.0` 升到 `^43.0.0`（npmmirror 上 43.0.0 win32-x64 zip 可用，约 150 MB），重装依赖后重启。这是 P0 版本对齐当初漏改的一项。**未在本轮执行**——需停机重装，会中断当前运行中的应用。
+- 修复（**本轮已执行并验证**）：`package.json` 的 `electron` 从 `^42.2.0` 改为精确 `43.0.0`（必须精确——白名单是按 Electron 版本精确匹配，升到 43.8.x 反而过不了）。因为 `npm install` 会 prune 掉阻塞 2 补好的 peer 依赖，实际采用**手动替换**方式：从 npmmirror 下载 `electron-v43.0.0-win32-x64.zip`（SHA256 校验通过），解包覆盖 `node_modules/electron/dist`，更新 `electron/package.json` 的 version 与 `path.txt`。这是 P0 版本对齐当初漏改的一项。
+- 验证：用 `electron.exe`（43.0.0）+ `ELECTRON_RUN_AS_NODE=1` 直接启动 dsh CLI，`dsh web` 正常监听端口（HTTP 401 = 需要 token，属正常），日志中无任何 `unsupported Electron runtime fingerprint` 错误。指纹问题确认解决。
+- 注意：手动替换只改本机 `node_modules`，未改 lockfile。其他机器 / 打包环境需执行 `npm install` 让 electron@43.0.0 正式落库；届时仍需按阻塞 2 的方法补 DSH peer 依赖。
 
 ### 阻塞 2：DSH profile 的 peer 依赖从未安装（已修复）
 
@@ -164,6 +166,13 @@ npm run electron:dev
   - 中途被 SIGTERM 中断会留下残缺包（当时 `client/dist/index.mjs` 只有 `.map` 没有本体，导致 `ERR_MODULE_NOT_FOUND`），重装即可；
   - `dsh-cua-macos`（darwin）、`libreoffice-kit-*` / `node-addon-system-*` 的 darwin/linux/arm64 二进制在 Windows x64 上用不到，可跳过。
 - 结果：内部包真实缺失数从 23 降到 **0**。
+
+### 阻塞 3：多次中断的 npm install 导致依赖包残缺（已修复）
+
+- 现象：换 Electron 43 后应用加载报 `Cannot find module 'langsmith/internal/utils/values.mjs'`，修好后又报 `Cannot find package 'langchain'`。
+- 根因：前几轮 `npm install` 被 SIGTERM 中断，留下大量残缺包——`langsmith@0.14.0` 缺 605 个文件（含 26 个运行时 `.mjs`），`langchain` / `@langchain/anthropic` 整个未装（项目只声明了 `@langchain/*` 作用域包，没声明裸 `langchain`，但 `deepagents` 需要它）。
+- 修复（同样避开 `npm install`）：从 npmmirror 下载官方 tarball，解包补齐。`langsmith` 按相对路径补 605 个缺失文件；`langchain@1.6.4` + `@langchain/anthropic@1.5.13` 整包解包安装。验证 `import('langchain')` 成功、应用加载零 `ERR_MODULE_NOT_FOUND`。
+- 结果：应用干净启动，Vite 200、electron 进程正常、日志仅有无害的证书告警。
 
 ### 修复后的 dsh 独立探测结果
 
@@ -185,9 +194,15 @@ dsh web: http://127.0.0.1:15996/?token=...
 | `HARNESS.md` 投影 | 文件已生成，标记对齐全，内容为空（尚无成功会话） |
 | bundle 注册表 | `bundles.json` 为空（默认），符合未添加第三方 bundle 状态 |
 | 标准 Node 下 dsh 启动 | 成功监听端口，插件树仅 1 个预期内未激活 |
+| Electron 43.0.0 下 dsh 启动 | 成功监听端口（401 需 token），**无指纹错误**，主因修复确认 |
+| 应用加载 | Electron 43 下零 `ERR_MODULE_NOT_FOUND`，仅无害证书告警 |
 
-### 仍待实测（需先修复 Electron 版本）
+### 仍待你在 UI 里实测（需真实会话/交互）
 
-- 第 3 层：应用内点启动后状态是否 `ready`、`toolCount` 是否 > 0、iframe 是否不再 401。
+应用本身已能干净启动，但以下项需要点击 UI 和真实对话才能确认，我无法代劳：
+
+- 第 3 层：左侧进入「DeepSeek Harness」页点启动，状态是否从 `starting` 变为 `ready`、`toolCount` 是否 > 0、iframe 是否不再反复 401。
 - 第 4 层：P1 审批弹窗、P2 首轮知识注入、`HARNESS.md` 会话投影、bundle 启停。
 - `ctx.tools.execute()` 返回形状、`ctx.agents.currentInitiator()` 在 pre-step 的可用性（需真实会话才能确认）。
+
+> 补充：`mcp-o-hino` 在独立探测时未激活是因为没有主进程的 MCP 服务（17891）。在真实应用里，点启动 Harness 时主进程会先拉起 MCP 服务，这一项应能正常激活——这也可以在 UI 启动后一并确认。
