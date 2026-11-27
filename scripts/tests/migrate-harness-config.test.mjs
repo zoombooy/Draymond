@@ -15,6 +15,17 @@ test('识别已移除的运行时不变式条目', () => {
   assert.equal(isRemovedInvariantLine('- id: mcp-happy-friday'), false)
 })
 
+test('识别第二行给出 name 的旧条目', () => {
+  const lines = [
+    '- id: custom-invariant',
+    '  name: "@deepseek-ai/dsh-invariants"',
+    '- id: mcp-happy-friday',
+    '  name: "@deepseek-ai/dsh-mcp-client"'
+  ]
+  const result = filterYamlItems(lines, 0, isRemovedInvariantLine)
+  assert.deepEqual(result, lines.slice(2))
+})
+
 test('识别失效的 time-context 覆盖', () => {
   assert.equal(isTimeContextLine('- id: time-context'), true)
   assert.equal(isTimeContextLine('    id: time-context'), true)
