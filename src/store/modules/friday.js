@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia'
 
-const MODE_KEY = 'happy-friday-chat-mode'
-const THINK_KEY = 'happy-friday-think-mode'
-const SELECTED_MODEL_KEY = 'happy-friday-selected-model'
-const HISTORY_WIDTH_KEY = 'happy-friday-history-sidebar-width'
-const HISTORY_SESSIONS_KEY = 'happy-friday-history-sessions'
+const MODE_KEY = 'o-hino-chat-mode'
+const THINK_KEY = 'o-hino-think-mode'
+const SELECTED_MODEL_KEY = 'o-hino-selected-model'
+const HISTORY_WIDTH_KEY = 'o-hino-history-sidebar-width'
+const HISTORY_SESSIONS_KEY = 'o-hino-history-sessions'
 const DEFAULT_HISTORY_WIDTH = 240
 
 function readStorage(key, fallback = '') {
