@@ -108,7 +108,7 @@ export async function exportHtmlToPdf(html, savePath) {
   const styledHtml = wrapHtmlWithStyles(html)
 
   const tempDir = os.tmpdir()
-  const tempPath = path.join(tempDir, 'happy-friday-export.html')
+  const tempPath = path.join(tempDir, 'o-hino-export.html')
 
   try {
     fs.writeFileSync(tempPath, styledHtml, 'utf-8')
