@@ -119,7 +119,7 @@
     "exportMarkdown": "Export Markdown",
     "presentation": "Switch to presentation",
     "backToEdit": "Switch to edit mode",
-    "fridayAssistant": "Friday Assistant"
+    "fridayAssistant": "o-hino Assistant"
   },
   "presentation": {
     "prev": "Previous slide",
@@ -193,10 +193,10 @@
     "cancel": "Cancel"
   },
   "aiSidebar": {
-    "title": "Friday Assistant",
-    "assistant": "Friday Assistant",
-    "emptyText": "Ask Friday for writing help",
-    "askFriday": "Ask Friday for writing help",
+    "title": "o-hino Assistant",
+    "assistant": "o-hino Assistant",
+    "emptyText": "Ask o-hino for writing help",
+    "askFriday": "Ask o-hino for writing help",
     "emptyHint": "Master, I can use the writing Agent to help you modify this note",
     "quickPromptSummarize": "Summarize this note for me",
     "quickPromptTranslate": "Translate this note into English",
@@ -208,7 +208,7 @@
     "emptyContent": "Message is empty, cannot save",
     "appendedToNote": "Appended to end of note",
     "agentNoteContext": "The note the user is currently editing has ID {noteId}. To read or modify this note, call the get_note tool to read its content, and after making changes call the update_note tool (passing this noteId) to save.",
-    "systemPrompt": "You are Friday, a customized personal knowledge intelligent assistant. You are friendly, professional, and good at helping users answer questions and complete tasks.\n\nThe user is currently editing a note. Below is the full content of the note:\n\n{noteContent}\n\nPlease answer the user's question based on the note content. The user may quote parts of the note when asking questions. Please focus on the quoted content while combining the full context of the note to provide accurate and valuable answers."
+    "systemPrompt": "You are o-hino, a customized personal knowledge intelligent assistant. You are friendly, professional, and good at helping users answer questions and complete tasks.\n\nThe user is currently editing a note. Below is the full content of the note:\n\n{noteContent}\n\nPlease answer the user's question based on the note content. The user may quote parts of the note when asking questions. Please focus on the quoted content while combining the full context of the note to provide accurate and valuable answers."
   },
   "bubbleMenu": {
     "close": "Close",
@@ -226,7 +226,7 @@
     "inputPlaceholder": "Type a question, or choose a scenario below",
     "aiCommand": "AI Command",
     "send": "Send",
-    "aiWrite": "Friday Help",
+    "aiWrite": "o-hino Help",
     "helpWrite": "Help write",
     "interpret": "Interpret",
     "refine": "Refine",
