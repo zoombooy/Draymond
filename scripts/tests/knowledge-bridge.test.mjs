@@ -41,7 +41,7 @@ test('用户输入事件识别与 query 提取', () => {
 })
 
 test('注入消息与取消投递不会再次触发检索', () => {
-  assert.equal(isUserInputEvent(inboxEvent([userMessage('旧结果', 'happy-friday-knowledge')])), false)
+  assert.equal(isUserInputEvent(inboxEvent([userMessage('旧结果', 'o-hino-knowledge')])), false)
   assert.equal(isUserInputEvent(inboxEvent([userMessage('已取消')], { outcome: 'canceled' })), false)
   assert.equal(queryFromEvent({ type: 'assistant/message', data: {} }), '')
 })
