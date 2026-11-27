@@ -1,6 +1,6 @@
 import { ref, watch } from 'vue'
 
-const THEME_STORAGE_KEY = 'happy-friday-theme-mode'
+const THEME_STORAGE_KEY = 'o-hino-theme-mode'
 
 const currentMode = ref('light')
 const appliedTheme = ref('light')
