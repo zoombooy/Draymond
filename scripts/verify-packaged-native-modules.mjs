@@ -42,7 +42,7 @@ if (requireBuiltinProbe.error || requireBuiltinProbe.status !== 0) {
 console.log('[verify-packaged-native-modules] Verified node-addon-require-builtin binding loads in Node')
 
 if (process.platform === 'linux' && process.arch === targetArch) {
-  const executable = join(appDir, 'happy-friday-lite')
+  const executable = join(appDir, 'o-hino')
   const probeScript = fileURLToPath(new URL('./probe-packaged-native-modules.cjs', import.meta.url))
   const probe = spawnSync(executable, [probeScript, packagedModules, '--include-lazy'], {
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
