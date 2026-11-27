@@ -250,8 +250,8 @@ function removeAttachment(idx) {
   attachments.value.splice(idx, 1);
 }
 
-const STORAGE_KEY = 'happy-friday-custom-models';
-const SELECTED_MODEL_KEY = 'happy-friday-selected-model';
+const STORAGE_KEY = 'o-hino-custom-models';
+const SELECTED_MODEL_KEY = 'o-hino-selected-model';
 
 const loadCustomModels = () => {
   try {
