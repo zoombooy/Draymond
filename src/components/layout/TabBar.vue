@@ -121,7 +121,7 @@ import CalendarIcon from '@/components/icons/CalendarIcon.vue';
 import KnowledgeIcon from '@/components/icons/KnowledgeIcon.vue';
 import NoteIcon from '@/components/icons/NoteIcon.vue';
 import DrawingIcon from '@/components/icons/DrawingIcon.vue';
-import HarnessIcon from '@/components/icons/HarnessIcon.vue';
+import PluginIcon from '@/components/icons/PluginIcon.vue';
 import AutomationIcon from '@/components/icons/AutomationIcon.vue';
 import HistoryIcon from '@/components/icons/HistoryIcon.vue';
 import SettingsIcon from '@/components/icons/SettingsIcon.vue';
@@ -141,7 +141,8 @@ const iconMap = {
   FileText,
   DrawingIcon,
   AutomationIcon,
-  HarnessIcon,
+  HarnessIcon: PluginIcon,
+  PluginIcon,
   OfficeIcon,
   CalendarIcon,
   Bot,

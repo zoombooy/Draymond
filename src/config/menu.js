@@ -6,7 +6,7 @@ import CalendarIcon from '@/components/icons/CalendarIcon.vue'
 import KnowledgeIcon from '@/components/icons/KnowledgeIcon.vue'
 import NoteIcon from '@/components/icons/NoteIcon.vue'
 import DrawingIcon from '@/components/icons/DrawingIcon.vue'
-import HarnessIcon from '@/components/icons/HarnessIcon.vue'
+import PluginIcon from '@/components/icons/PluginIcon.vue'
 import AutomationIcon from '@/components/icons/AutomationIcon.vue'
 import HistoryIcon from '@/components/icons/HistoryIcon.vue'
 import SettingsIcon from '@/components/icons/SettingsIcon.vue'
@@ -18,7 +18,7 @@ export const sidebarMenuConfig = [
   { key: 'office', path: '/office', icon: 'OfficeIcon', iconComponent: OfficeIcon, i18nKey: 'office.title' },
   { key: 'schedule', path: '/schedule', icon: 'CalendarIcon', iconComponent: CalendarIcon, i18nKey: 'schedule.title' },
   { key: 'automation', path: '/automation', icon: 'AutomationIcon', iconComponent: AutomationIcon, i18nKey: 'automation.title' },
-  { key: 'harness', path: '/harness', icon: 'HarnessIcon', iconComponent: HarnessIcon, i18nKey: 'harness.title' }
+  { key: 'harness', path: '/harness', icon: 'PluginIcon', iconComponent: PluginIcon, i18nKey: 'harness.title' }
 ]
 
 export const sidebarBottomMenuConfig = [
