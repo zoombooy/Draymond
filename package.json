@@ -1,7 +1,7 @@
 {
-  "name": "happy-friday-lite",
+  "name": "o-hino",
   "version": "3.0.6",
-  "description": "Happy Friday Lite - Electron + Vue3",
+  "description": "o-hino - Electron + Vue3",
   "author": "Chen Jie <chenjie.plus@qq.com>",
   "license": "PolyForm-Noncommercial-1.0.0",
   "main": "main.js",
@@ -134,8 +134,8 @@
     "wait-on": "^8.0.3"
   },
   "build": {
-    "appId": "com.happyfriday.lite",
-    "productName": "Happy Friday Lite",
+    "appId": "com.ohino.lite",
+    "productName": "o-hino",
     "icon": "build/icons/icon.png",
     "afterPack": "scripts/afterpack.cjs",
     "directories": {
