@@ -26,8 +26,8 @@ import {
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const HARNESS_CONSUMER = 'deepseek-harness'
-const HARNESS_PROVIDER = 'happy-friday'
-const HARNESS_CREDENTIAL = 'HAPPY_FRIDAY_HARNESS_API_KEY'
+const HARNESS_PROVIDER = 'o-hino'
+const HARNESS_CREDENTIAL = 'O_HINO_HARNESS_API_KEY'
 const MCP_SERVER_NAME = TOOL_BRIDGE_SERVER_NAME
 // Generous enough for a first boot on slow hardware (e.g. ARM boards): the
 // initial boot also initializes the DSH profile before the web URL is printed.
@@ -68,10 +68,10 @@ function harnessPaths() {
     workspace: path.join(root, 'workspace'),
     settings: path.join(root, 'home', 'settings.yaml'),
     credentials: path.join(root, 'home', '.credentials.yaml'),
-    patch: path.join(root, 'home', 'happy-friday.patch.yml'),
+    patch: path.join(root, 'home', 'o-hino.patch.yml'),
     // 插件随应用一起打包，不再复制到 DSH home，避免版本漂移。
-    approvalPlugin: path.resolve(__dirname, '..', '..', 'plugins', 'happy-friday-tools', 'index.js'),
-    knowledgePlugin: path.resolve(__dirname, '..', '..', 'plugins', 'happy-friday-knowledge', 'index.js'),
+    approvalPlugin: path.resolve(__dirname, '..', '..', 'plugins', 'o-hino-tools', 'index.js'),
+    knowledgePlugin: path.resolve(__dirname, '..', '..', 'plugins', 'o-hino-knowledge', 'index.js'),
     // Harness 会话摘录写入 Friday 的 /memories/ 目录，另一套 Agent 也能读到。
     memoryFile: path.join(getMemoryDir(), 'HARNESS.md')
   }
@@ -138,6 +138,8 @@ function writeHarnessCredential(filename, value) {
       refs[key] = entry
     }
   }
+  // 品牌重命名前的凭证 key 不再被 DSH provider 引用；清掉旧 key 避免残留。
+  delete refs.HAPPY_FRIDAY_HARNESS_API_KEY
   refs[HARNESS_CREDENTIAL] = value
   const next = { version: 1, refs }
   if (isMapping(document.records)) next.records = document.records
@@ -270,11 +272,11 @@ function syncConfiguration(model, mcpUrl) {
           {
             insert: [
               {
-                id: 'happy-friday-directory-picker',
+                id: 'o-hino-directory-picker',
                 name: '@deepseek-ai/dsh-host-directory-picker-browse'
               },
               {
-                id: 'happy-friday-directory-picker-ui',
+                id: 'o-hino-directory-picker-ui',
                 name: '@deepseek-ai/dsh-client-ui-directory-picker-browse'
               }
             ]
@@ -284,7 +286,7 @@ function syncConfiguration(model, mcpUrl) {
     {
       insert: [
         {
-          id: 'mcp-happy-friday',
+          id: 'mcp-o-hino',
           name: '@deepseek-ai/dsh-mcp-client',
           config: {
             serverName: MCP_SERVER_NAME,
@@ -295,13 +297,13 @@ function syncConfiguration(model, mcpUrl) {
           }
         },
         {
-          id: 'happy-friday-tool-approval',
+          id: 'o-hino-tool-approval',
           name: pathToFileURL(paths.approvalPlugin).href,
           inject: ['tools'],
           config: approvalConfig
         },
         {
-          id: 'happy-friday-knowledge',
+          id: 'o-hino-knowledge',
           name: pathToFileURL(paths.knowledgePlugin).href,
           inject: ['agents', 'tools'],
           config: {
@@ -477,7 +479,7 @@ async function bootHarness() {
     const mcp = await acquireLocalMcpServer(HARNESS_CONSUMER)
     acquiredMcp = true
     const mcpStatus = getLocalMcpStatus()
-    if (!mcp.success || !mcpStatus.url) throw new Error('Happy Friday MCP server failed to start')
+    if (!mcp.success || !mcpStatus.url) throw new Error('o-hino MCP server failed to start')
     if (expectedGeneration !== generation) throw new Error('Harness startup was superseded')
 
     const { paths, toolCount } = syncConfiguration(model, mcpStatus.url)
