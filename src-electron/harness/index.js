@@ -752,8 +752,8 @@ export function registerHarnessCommands(window) {
   ipcMain.handle('harness-sdk-wait', (_event, options) => sdkWait(sdkRuntime, options || {}))
   ipcMain.handle('harness-sdk-stop', () => stopSdkChannel())
 
-  // 第三方 bundle 管理。改动只写注册表 + 重写 patch，是否立即生效取决于
-  // Harness 是否开启 HMR；未开启时提示用户重启 Harness。
+  // 第三方 bundle 管理。变更只写注册表；patch 在下次启动时由 syncConfiguration
+  // 重新生成，所以运行中的 Harness 需要重启才能加载，UI 据此提示用户。
   ipcMain.handle('harness-bundles-list', () => {
     const paths = harnessPaths()
     return {
