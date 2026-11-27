@@ -30,7 +30,7 @@ defineProps({
   // 稳定对象，字段均为 ref：streaming / content / reasoning / sources / segments / reasoningStreaming / thinking
   state: { type: Object, required: true },
   mode: { type: String, default: 'chat' },
-  displayName: { type: String, default: '周五' },
+  displayName: { type: String, default: 'o-hino' },
   showActions: { type: Boolean, default: true },
   showRollback: { type: Boolean, default: false }
 });
