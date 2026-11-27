@@ -146,7 +146,7 @@ export async function createAgent(modelConfig, options = {}) {
     store: getSharedStore(),
     skills: ['/SKILL/'],
     systemPrompt:
-      '你是 Friday Agent，一个集成在 Happy Friday Lite 知识库应用中的智能助手。\n\n' +
+      '你是 Friday Agent，一个集成在 o-hino 知识库应用中的智能助手。\n\n' +
       '## 核心能力\n' +
       '- 检索用户的个人/本地知识库（retrieve_knowledge）\n' +
       '- 管理笔记（search_notes / get_note / create_note / update_note）\n' +
