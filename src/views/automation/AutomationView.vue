@@ -327,7 +327,7 @@ const selectedModel = computed(() => modelList.value.find(model => model.id === 
 
 const resolveModelId = (preferredModelId = '') => {
   if (preferredModelId && customModels.value.some(model => model.id === preferredModelId)) return preferredModelId;
-  const savedModelId = localStorage.getItem('happy-friday-selected-model');
+  const savedModelId = localStorage.getItem('o-hino-selected-model');
   if (customModels.value.some(model => model.id === savedModelId)) return savedModelId;
   return customModels.value[0]?.id || '';
 };
@@ -527,7 +527,7 @@ const selectIntervalUnit = (unit) => {
 
 const selectModel = (modelId) => {
   selectedModelId.value = modelId;
-  localStorage.setItem('happy-friday-selected-model', modelId);
+  localStorage.setItem('o-hino-selected-model', modelId);
   showModelMenu.value = false;
 };
 
@@ -620,8 +620,8 @@ onBeforeUnmount(() => {
 
 onMounted(() => {
   try {
-    customModels.value = JSON.parse(localStorage.getItem('happy-friday-custom-models') || '[]');
-    const savedModelId = localStorage.getItem('happy-friday-selected-model');
+    customModels.value = JSON.parse(localStorage.getItem('o-hino-custom-models') || '[]');
+    const savedModelId = localStorage.getItem('o-hino-selected-model');
     selectedModelId.value = customModels.value.some(model => model.id === savedModelId)
       ? savedModelId
       : (customModels.value[0]?.id || '');
