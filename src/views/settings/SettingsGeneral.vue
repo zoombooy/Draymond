@@ -417,14 +417,6 @@
             <span class="item-label">{{ t('settings.features') }}</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="arrow-icon"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </div>
-          <div class="setting-item clickable" @click="openHelpUrl">
-            <span class="item-label">{{ t('settings.helpFeedback') }}</span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="arrow-icon"><polyline points="9 18 15 12 9 6"></polyline></svg>
-          </div>
-          <div class="setting-item clickable" @click="showAuthorModal = true">
-            <span class="item-label">作者介绍</span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="arrow-icon"><polyline points="9 18 15 12 9 6"></polyline></svg>
-          </div>
         </div>
       </div>
     </div>
@@ -477,107 +469,6 @@
                 <div class="feature-desc">{{ feature.desc }}</div>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
-
-    <!-- 作者介绍 弹窗 -->
-    <Teleport to="body">
-      <div v-if="showAuthorModal" class="info-modal-overlay" @click.self="showAuthorModal = false">
-        <div class="author-modal">
-          <button class="author-modal-close" @click="showAuthorModal = false">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
-
-          <!-- 渐变 Banner 头部 -->
-          <div class="author-banner">
-            <div class="author-banner-bg"></div>
-            <div class="author-avatar-lg">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-            </div>
-            <h2 class="author-name-lg">Cheney</h2>
-            <div class="author-badges">
-              <span class="author-badge">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
-                  <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
-                </svg>
-                浙江工业大学
-              </span>
-              <span class="author-badge">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M3 21h18"></path>
-                  <path d="M5 21V7l8-4v18"></path>
-                  <path d="M19 21V11l-6-4"></path>
-                </svg>
-                杭州某城商行
-              </span>
-              <a class="author-badge author-badge-link" @click="openAuthorEmail">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                  <polyline points="22,6 12,13 2,6"></polyline>
-                </svg>
-                chenjie.plus@qq.com
-              </a>
-            </div>
-          </div>
-
-          <!-- 内容区 -->
-          <div class="author-content">
-            <!-- 研究方向 -->
-            <div class="author-block">
-              <div class="author-block-title">
-                <span class="author-block-icon author-icon-research">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
-                  </svg>
-                </span>
-                <span>研究方向</span>
-              </div>
-              <p class="author-desc">计算机视觉、图像模型攻防</p>
-              <div class="author-tags">
-                <span class="pub-tag pub-tag-aaai">AAAI · 防御知识蒸馏 ×1</span>
-                <span class="pub-tag pub-tag-ccf">CCF-C ×2</span>
-              </div>
-            </div>
-
-            <!-- 分隔线 -->
-            <div class="author-divider"></div>
-
-            <!-- 业余爱好 -->
-            <div class="author-block">
-              <div class="author-block-title">
-                <span class="author-block-icon author-icon-hobby">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2a10 10 0 1 0 10 10"></path>
-                    <path d="M12 6v6l4 2"></path>
-                  </svg>
-                </span>
-                <span>业余爱好</span>
-              </div>
-              <p class="author-desc">大模型应用落地与 Agent Coding，探索 AI 驱动的工程实践。</p>
-            </div>
-
-            <!-- 主页按钮 -->
-            <button class="author-homepage-btn" @click="openAuthorHomepage">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-              </svg>
-              <span>访问作者主页</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-                <polyline points="12 5 19 12 12 19"></polyline>
-              </svg>
-            </button>
           </div>
         </div>
       </div>
@@ -1502,12 +1393,11 @@ const goToModuleSettings = () => {
   router.push('/settings/modules');
 };
 
-// ========== 关于 / 功能介绍 / 帮助与反馈 ==========
+// ========== 关于 / 功能介绍 ==========
 const HELP_URL = 'https://github.com/cheney-plus/o-hino-electron';
 
 const showAboutModal = ref(false);
 const showFeaturesModal = ref(false);
-const showAuthorModal = ref(false);
 
 const appVersion = packageJson.version;
 
@@ -1564,14 +1454,6 @@ const openLogDir = async () => {
 
 const checkForUpdate = () => {
   electronService.invoke('open-external', `${HELP_URL}/releases`);
-};
-
-const openAuthorHomepage = () => {
-  electronService.invoke('open-external', 'https://chenjie.blog.csdn.net');
-};
-
-const openAuthorEmail = () => {
-  electronService.invoke('open-external', 'mailto:chenjie.plus@qq.com');
 };
 </script>
 
@@ -2016,239 +1898,6 @@ const openAuthorEmail = () => {
   color: #f59e0b;
 }
 
-/* 作者介绍弹窗 */
-.author-modal {
-  position: relative;
-  background-color: var(--bg-primary);
-  border-radius: 16px;
-  width: 90%;
-  max-width: 420px;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.2);
-  animation: infoSlideUp 0.25s ease;
-  overflow: hidden;
-}
-
-.author-modal-close {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  z-index: 2;
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(8px);
-  border: none;
-  cursor: pointer;
-  padding: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  border-radius: 8px;
-  transition: background-color 0.15s;
-}
-
-.author-modal-close:hover {
-  background: rgba(255, 255, 255, 0.35);
-}
-
-/* Banner 头部 */
-.author-banner {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 32px 24px 24px;
-  overflow: hidden;
-}
-
-.author-banner-bg {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
-}
-
-.author-banner-bg::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.15) 0%, transparent 40%),
-    radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.1) 0%, transparent 40%);
-}
-
-.author-avatar-lg {
-  position: relative;
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  border: 3px solid rgba(255, 255, 255, 0.4);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-}
-
-.author-name-lg {
-  position: relative;
-  font-size: 22px;
-  font-weight: 700;
-  color: #fff;
-  margin: 0 0 12px;
-  letter-spacing: 0.5px;
-}
-
-.author-badges {
-  position: relative;
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.author-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 20px;
-  font-size: 12px;
-  color: #fff;
-  font-weight: 500;
-}
-
-.author-badge-link {
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-.author-badge-link:hover {
-  background: rgba(255, 255, 255, 0.35);
-}
-
-/* 内容区 */
-.author-content {
-  padding: 22px 24px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-}
-
-.author-block {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.author-block-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.author-block-icon {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-}
-
-.author-icon-research {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-}
-
-.author-icon-hobby {
-  background: linear-gradient(135deg, #f59e0b, #ef4444);
-}
-
-.author-desc {
-  font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1.65;
-  margin: 0;
-  padding-left: 36px;
-}
-
-.author-tags {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  padding-left: 36px;
-}
-
-.pub-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 10px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
-}
-
-.pub-tag-aaai {
-  background: rgba(99, 102, 241, 0.12);
-  color: #6366f1;
-}
-
-.pub-tag-ccf {
-  background: rgba(16, 185, 129, 0.12);
-  color: #10b981;
-}
-
-.author-divider {
-  height: 1px;
-  background: var(--border-color);
-  margin: 0 -24px;
-}
-
-/* 主页按钮 */
-.author-homepage-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: 12px 16px;
-  background: linear-gradient(135deg, #10b981, #3b82f6);
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  transition: all 0.2s;
-  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
-}
-
-.author-homepage-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35);
-}
-
-.author-homepage-btn:active {
-  transform: translateY(0);
-}
-
 /* 关于 / 功能介绍 弹窗 */
 .info-modal-overlay {
   position: fixed;
@@ -2458,10 +2107,6 @@ const openAuthorEmail = () => {
 
 [data-theme='dark'] .info-modal-container {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-}
-
-[data-theme='dark'] .author-modal {
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
 }
 
 /* Python 环境设置区块 */
