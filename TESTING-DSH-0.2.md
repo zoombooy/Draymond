@@ -42,12 +42,12 @@ node --test scripts/tests/migrate-harness-config.test.mjs \
 # Windows（Git Bash）
 TMP=./harness-migrate-demo
 mkdir -p "$TMP/deepseek-harness/home/profiles/default"
-cat > "$TMP/deepseek-harness/home/happy-friday.patch.yml" <<'EOF'
+cat > "$TMP/deepseek-harness/home/o-hino.patch.yml" <<'EOF'
 - id: custom-invariant
   name: "@deepseek-ai/dsh-invariants"
 - id: time-context
   options: {}
-- id: mcp-happy-friday
+- id: mcp-o-hino
   insert: []
 EOF
 cat > "$TMP/deepseek-harness/home/profiles/default/package.json" <<'EOF'
@@ -56,7 +56,7 @@ EOF
 
 npm run harness:migrate -- "$TMP"
 npm run harness:migrate -- "$TMP"     # 第二次应为「没有需要清理的配置」
-cat "$TMP/deepseek-harness/home/happy-friday.patch.yml"
+cat "$TMP/deepseek-harness/home/o-hino.patch.yml"
 cat "$TMP/deepseek-harness/home/profiles/default/package.json"
 ```
 
@@ -64,7 +64,7 @@ cat "$TMP/deepseek-harness/home/profiles/default/package.json"
 
 - 第一次输出两条「已清理」，每条都带 `*.bak-0.1.5-<时间戳>` 备份路径；
 - 第二次输出「没有需要清理的 0.1.x 配置」（幂等）；
-- `happy-friday.patch.yml` 只剩 `mcp-happy-friday` 条目，两个旧条目被清掉；
+- `o-hino.patch.yml` 只剩 `mcp-o-hino` 条目，两个旧条目被清掉；
 - profile manifest 的 `bundles` 只剩 `@deepseek-ai/dsh-web-app`，其他字段保持原样。
 
 确认无误后，再对真实数据目录执行（默认开发数据目录是项目下 `app-data`）：
@@ -73,7 +73,7 @@ cat "$TMP/deepseek-harness/home/profiles/default/package.json"
 npm run harness:migrate -- ./app-data
 ```
 
-自定义数据目录时传实际路径，或设置 `HAPPY_FRIDAY_DATA_DIR`。执行前先确认备份文件路径，**出问题直接把 `*.bak-*` 改回原名即可回滚**。
+自定义数据目录时传实际路径，或设置 `O_HINO_DATA_DIR`。执行前先确认备份文件路径，**出问题直接把 `*.bak-*` 改回原名即可回滚**。
 
 ## 第 3 层：构建与启动冒烟
 
@@ -93,7 +93,7 @@ npm run electron:dev
 
 如果报 `config-required`，是没在设置里配置模型（分支没改这块）；如果报插件加载失败，看终端里 `[Harness] Startup failed` 后面的多行诊断，里面会列出具体是哪个插件条目。
 
-生成的 patch 在 `app-data/deepseek-harness/home/happy-friday.patch.yml`，可以直接打开核对三个插入项：`mcp-happy-friday`、`happy-friday-tool-approval`、`happy-friday-knowledge`。
+生成的 patch 在 `app-data/deepseek-harness/home/o-hino.patch.yml`，可以直接打开核对三个插入项：`mcp-o-hino`、`o-hino-tool-approval`、`o-hino-knowledge`。
 
 ## 第 4 层：P1 / P2 功能实测
 
@@ -124,7 +124,7 @@ npm run electron:dev
 - <!-- hf:session-id:12 --> 2026-11-27T... · <助手回复摘录>
 ```
 
-**验证幂等**：重启 Harness、重复同一段对话，同一 `(session, seq)` 的条目不应重复出现；手动在两个 `<!-- happy-friday-harness-memory:start/end -->` 标记之外写一行文字，重启后这行文字应保留。
+**验证幂等**：重启 Harness、重复同一段对话，同一 `(session, seq)` 的条目不应重复出现；手动在两个 `<!-- o-hino-harness-memory:start/end -->` 标记之外写一行文字，重启后这行文字应保留。
 
 默认 `captureUser: false`，用户原话不应落盘；如需验证用户消息投影，把 `harness/index.js` 中的 `captureUser` 临时改为 `true` 再跑一轮。
 
