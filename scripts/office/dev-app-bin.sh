@@ -1,5 +1,5 @@
 #!/bin/sh
-# Dev-only launcher for the happyfriday-office CLI (GENOFFICE_APP_BIN).
+# Dev-only launcher for the ohino-office CLI (GENOFFICE_APP_BIN).
 #
 # The CLI's --headless-export path spawns the "app binary". In a packaged app
 # process.execPath already is that binary; in the dev checkout it is the bare
