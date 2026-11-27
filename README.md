@@ -1,7 +1,5 @@
 # o-hino
 
-[English](README.en.md)
-
 一个基于 Electron + Vue 3 的桌面端个人知识智能助手。集成 AI Agent、RAG 知识检索、富文本笔记、日程日历于一体，所有数据本地存储，隐私优先。
 
 ## ✨ 核心功能
@@ -10,17 +8,24 @@
 
 - 内置 Office 办公套件：AI 文档、AI 表格、AI 演示、AI PDF
 - 富文本文档编辑：标题、列表、链接、表格、图片、公式等
-- Friday 侧边栏辅助写作：润色、翻译、扩写，一键生成幻灯片
+- o-hino 侧边栏辅助写作：润色、翻译、扩写，一键生成幻灯片
 - 支持新建文件或打开本地 `.docx` / `.xlsx` / `.csv` / `.pptx` / `.pdf` 文件
 - 最近文件列表，支持按类型（文档 / 表格 / 演示 / PDF）筛选
 
-### 🤖 Friday 智能助手
+### 🤖 o-hino 智能助手
 
 - 基于 [DeepAgent SDK](https://github.com/frost-beta/deepagents) + LangChain 构建的智能体
 - 内置 12+ 工具：知识库检索、笔记/日程操作、文件读写、Shell 执行、Python REPL、HTTP 请求、网页抓取、JSON 处理、计算器等
 - 支持 Human-in-the-Loop（HITL）：敏感操作需用户确认
 - 支持 SKILL 技能系统：从 `SKILL/` 目录加载 Markdown 技能描述
-- 支持子 Agent（subagents）与跨会话记忆（SQLite + InMemoryStore）
+- 支持子 Agent（subagents）与跨会话记忆（`/memories/` 下落盘的 Markdown 文件，Agent 可自主读写）
+
+### 🌐 DeepSeek Harness
+
+- 内置 DeepSeek Harness 运行时，可加载本地工具与知识库完成复杂任务
+- 内置工具统一以 `mcp__o-hino__*` 名称暴露给 Harness
+- 审批策略插件 `o-hino-tools`：敏感操作同样需要用户确认
+- 知识库注入插件 `o-hino-knowledge`：对话时自动带入相关知识
 
 ### 📚 知识库
 
@@ -49,10 +54,11 @@
 
 - 自研日历组件，支持月 / 周 / 年 / 列表多视图切换
 - 农历显示支持
-- Friday 助手可自然语言创建/修改日程
+- o-hino 助手可自然语言创建/修改日程
 
 ### 🎨 其他特性
 
+- 自动化任务：让 o-hino 按计划执行工作流
 - 主题：浅色 / 深色 / 跟随系统
 - 国际化：简体中文 / English
 - 数据自动备份
@@ -60,11 +66,11 @@
 
 ## 🖼️ 截图
 
-### Friday 智能助手
+### o-hino 智能助手
 
-![Friday 智能助手首页](docs/resource/PixPin_2026-08-15_16-51-10.png)
+![o-hino 智能助手首页](docs/resource/PixPin_2026-08-15_16-51-10.png)
 
-![Friday 对话与代码执行](docs/resource/PixPin_2026-09-22_23-43-29.png)
+![o-hino 对话与代码执行](docs/resource/PixPin_2026-09-22_23-43-29.png)
 
 ### Office
 
@@ -108,7 +114,7 @@
 
 ### 环境要求
 
-- Node.js >= 20（推荐 22）
+- Node.js >= 20（推荐 22；使用 DeepSeek Harness 需 >= 24.22.3）
 - npm >= 10
 - macOS / Windows / Linux
 
@@ -146,7 +152,7 @@ npm run electron:build:arm64
 
 ## 📦 下载安装
 
-前往 [Releases](../../releases) 页面下载对应平台的安装包：
+前往 [Releases](https://github.com/zoombooy/Draymond/releases) 页面下载对应平台的安装包：
 
 | 平台 | 产物 |
 | --- | --- |
@@ -165,7 +171,7 @@ npm run electron:build:arm64
 | 国际化 | Vue I18n |
 | 富文本编辑 | TipTap |
 | 日历 | 自研 Vue 日历组件 |
-| AI Agent | DeepAgents + LangChain |
+| AI Agent | DeepAgents + LangChain、DeepSeek Harness |
 | 向量数据库 | Zvec |
 | 本地数据库 | SQLite (sql.js) |
 | Python 运行时 | 内置便携版 Python（用于 Agent 的 python_repl 工具） |
@@ -179,12 +185,14 @@ o-hino/
 ├── src/                     # Vue 前端源码
 │   ├── components/          # 通用组件（chat / layout）
 │   ├── views/               # 页面视图
-│   │   ├── friday/          # Friday 助手
+│   │   ├── friday/          # o-hino 智能助手（代码目录沿用 friday）
 │   │   ├── office/          # Office 办公套件（文档 / 表格 / 演示 / PDF）
 │   │   ├── knowledge/       # 知识库
 │   │   ├── note/            # 笔记
 │   │   ├── drawing/         # 绘图
 │   │   ├── schedule/        # 日程
+│   │   ├── automation/      # 自动化任务
+│   │   ├── harness/         # DeepSeek Harness 界面
 │   │   ├── history/         # 历史版本
 │   │   └── settings/        # 设置
 │   ├── store/               # Pinia 状态模块
@@ -192,10 +200,12 @@ o-hino/
 │   └── router/              # 路由配置
 ├── src-electron/            # Electron 后端
 │   ├── agent/               # Agent 核心（工具/技能/子Agent/权限/记忆）
+│   ├── harness/             # DeepSeek Harness 运行时与知识注入
 │   ├── rag/                 # RAG 流程（加载/分块/向量化/检索）
 │   ├── db.js                # SQLite 数据库
 │   ├── llm.js               # LLM 适配
 │   └── python-env.js        # Python 运行时环境
+├── plugins/                 # Harness 插件（o-hino-tools / o-hino-knowledge）
 ├── python/                  # Python 运行时下载脚本
 ├── scripts/                 # 构建辅助脚本
 └── .github/workflows/       # CI 构建工作流
@@ -232,4 +242,4 @@ o-hino/
 
 ## 📧 联系方式
 
-如有问题或建议，欢迎通过 [Issues](../../issues) 反馈或者邮箱（chenjie.plus@qq.com）联系我。
+如有问题或建议，欢迎通过 [Issues](https://github.com/zoombooy/Draymond/issues) 反馈或者邮箱（chenjie.plus@qq.com）联系我。
