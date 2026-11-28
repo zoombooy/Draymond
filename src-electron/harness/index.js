@@ -387,11 +387,23 @@ function resolveHarnessCli() {
   return fs.existsSync(unpacked) ? unpacked : cli
 }
 
+// Probe the bare origin, never the token URL. DSH answers 401 on the bare
+// origin until the per-process token is exchanged, so any HTTP response means
+// the server is up. Following the token URL here would consume the exchange
+// outside Electron's webRequest pipeline: the 303 would not be seen by
+// onHeadersReceived, leaving the iframe without the session cookie.
 function probe(url) {
   return new Promise(resolve => {
-    const request = http.get(url, response => {
+    let origin
+    try {
+      origin = new URL(url).origin
+    } catch {
+      resolve(false)
+      return
+    }
+    const request = http.get(origin, response => {
       response.resume()
-      resolve(response.statusCode >= 200 && response.statusCode < 500)
+      resolve(true)
     })
     request.setTimeout(1000, () => request.destroy())
     request.on('error', () => resolve(false))
@@ -421,15 +433,38 @@ function enableHarnessCookieForwarding(port) {
   const filter = { urls: [`http://127.0.0.1:${port}/*`, `ws://127.0.0.1:${port}/*`] }
   const webRequest = session.defaultSession.webRequest
   let cookie = null
+  let loggedCapture = false
+  let loggedForward = false
   webRequest.onHeadersReceived(filter, (details, callback) => {
-    for (const line of details.responseHeaders?.['set-cookie'] ?? []) {
-      const pair = line.split(';', 1)[0]
-      if (pair.startsWith(DSH_COOKIE_PREFIX)) cookie = pair
+    for (const key of Object.keys(details.responseHeaders ?? {})) {
+      if (key.toLowerCase() !== 'set-cookie') continue
+      for (const line of details.responseHeaders[key] ?? []) {
+        const pair = line.split(';', 1)[0]
+        if (!pair.startsWith(DSH_COOKIE_PREFIX)) continue
+        cookie = pair
+        if (!loggedCapture) {
+          loggedCapture = true
+          console.log('[Harness] Captured dsh auth cookie from webRequest')
+        }
+      }
     }
     callback({})
   })
   webRequest.onBeforeSendHeaders(filter, (details, callback) => {
-    if (cookie) details.requestHeaders.Cookie = cookie
+    if (cookie) {
+      // Chromium lowercases request header names. Setting `Cookie` (capitalized)
+      // adds a second header beside the empty one Chromium already prepared, so
+      // dsh still sees no usable credential and answers 401 ("Connect to this
+      // Host"). Strip every casing variant and write the lowercase form only.
+      for (const key of Object.keys(details.requestHeaders)) {
+        if (key.toLowerCase() === 'cookie') delete details.requestHeaders[key]
+      }
+      details.requestHeaders.cookie = cookie
+      if (!loggedForward) {
+        loggedForward = true
+        console.log('[Harness] Forwarding dsh auth cookie to iframe requests')
+      }
+    }
     callback({ requestHeaders: details.requestHeaders })
   })
 }

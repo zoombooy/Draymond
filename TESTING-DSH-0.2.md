@@ -206,3 +206,29 @@ dsh web: http://127.0.0.1:15996/?token=...
 - `ctx.tools.execute()` 返回形状、`ctx.agents.currentInitiator()` 在 pre-step 的可用性（需真实会话才能确认）。
 
 > 补充：`mcp-o-hino` 在独立探测时未激活是因为没有主进程的 MCP 服务（17891）。在真实应用里，点启动 Harness 时主进程会先拉起 MCP 服务，这一项应能正常激活——这也可以在 UI 启动后一并确认。
+
+## 本轮实测记录（2026-11-28）：iframe 401 / forbidden 修复
+
+### 现象
+点击左侧拼图图标进入 Harness 页，提示"正在启动 DeepSeek Harness"，加载约 25 秒后 iframe 显示 401 页面（标题 "Connect to this Host"，正文 i18n 含 "forbidden" 文案，用户据此称"forbidden"）。
+
+### 根因（两个叠加）
+1. **cookie 注入大小写错误**：`enableHarnessCookieForwarding()` 的 `onBeforeSendHeaders` 用大写 `details.requestHeaders.Cookie = cookie`。Chromium 的请求头 key 是小写，大写写法会在已存在的空 cookie 头旁再加一个头，dsh 仍收不到凭证 → 401。
+2. **探针抢先消费 token URL**：`probe()` 直接用 Node `http.get(tokenUrl)`，DSH 返回 303 + `Set-Cookie`；Node 网络栈的这次 303 走不到 Electron 的 `onHeadersReceived`，且 curl/Electron 跟随 303 时默认不回传 Set-Cookie，探针看不到真正的就绪状态。
+
+### 修复（`src-electron/harness/index.js`）
+- `onBeforeSendHeaders`：先删除所有大小写变体的 cookie 头，只写小写 `details.requestHeaders.cookie = cookie`；`onHeadersReceived` 改成大小写不敏感地找 `set-cookie`；加两行一次性诊断日志（捕获/转发 cookie）。
+- `probe()`：改为只探测 token URL 的 **origin**（`new URL(url).origin`），裸 origin 的 401 即判定"服务在线"，把完整 token URL 留给 iframe 消费。
+
+### 实测验证（curl 精确模拟）
+| 步骤 | 结果 |
+|---|---|
+| 裸 origin（无 token） | HTTP 401（探针按新逻辑判定在线）|
+| token URL + 303 但不带 cookie（旧逻辑等价）| 仍是 401，页面 "Connect to this Host" |
+| 带捕获的小写 `cookie` 头访问裸 origin | **HTTP 200** |
+| token URL + cookie jar 完整跟随（新逻辑等价）| **HTTP 200**，页面 title "DeepSeek Harness" |
+
+注：沙箱内无法起 Electron GUI 网络栈做端到端（窗口被拦），`session/net` 在 node 模式下不可用，故用 curl + cookie jar 精确复现 303 / Set-Cookie / 小写 cookie 的完整链路。最终以你在 UI 里点击后的实际状态为准。
+
+### 仍需你在 UI 里确认
+重新进入 Harness 页（服务已在 09:36 重启加载了修复），确认：状态变 `ready`、`toolCount > 0`、iframe 显示 dsh 主界面而非 "Connect to this Host"。加载约 25 秒属正常（DSH profile 首次初始化）。若仍 401，请查看 `o-hino-startup.log` 是否出现新增的两行 `[Harness] Captured/Forwarding dsh auth cookie` 诊断日志，据此判断 cookie 是否被捕获。
