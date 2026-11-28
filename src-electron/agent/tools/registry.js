@@ -99,6 +99,18 @@ export function registerTool({ name, description, schema, handler, meta = {} }) 
 }
 
 /**
+ * 注销一个工具。供插件桥接层清理上一轮动态注册的工具使用。
+ * 内置工具不会被动态注销，这里只按名字删除，调用方需保证名字正确。
+ * @param {string} name 工具名
+ * @returns {boolean} 是否确实删除了工具
+ */
+export function unregisterTool(name) {
+  const existed = registry.has(name)
+  if (existed) registry.delete(name)
+  return existed
+}
+
+/**
  * 获取所有已注册的工具定义
  * @returns {Array}
  */

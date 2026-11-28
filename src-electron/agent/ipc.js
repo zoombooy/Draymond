@@ -171,6 +171,20 @@ export function registerAgentCommands(mainWindow) {
         ]
       }
 
+      // 8.5 触发插件事件桥：让知识注入等插件在本轮对话生效。
+      // 插件失败不影响对话，保留原始输入继续。
+      try {
+        const { runPluginPreStep } = await import('./pluginBridge.js')
+        const pluginResult = await runPluginPreStep({
+          sessionId: currentSessionId,
+          text: typeof userContent === 'string' ? userContent : message,
+          messages: input.messages
+        })
+        if (pluginResult?.messages) input.messages = pluginResult.messages
+      } catch (error) {
+        log.warn(`插件事件桥跳过: ${error.message}`)
+      }
+
       // 9. 流式执行 Agent（含 HITL 中断处理循环）
       let fullContent = ''
       let fullReasoning = ''
@@ -276,6 +290,13 @@ export function registerAgentCommands(mainWindow) {
 
   // ========== agent-list-tools: 查询已注册工具列表 ==========
   ipcMain.handle('agent-list-tools', async () => {
+    // 查询前同步一次插件工具，确保插件页新装/启用的插件即时出现在列表里
+    try {
+      const { syncPluginTools } = await import('./pluginBridge.js')
+      await syncPluginTools()
+    } catch (error) {
+      log.warn(`插件工具列表同步跳过: ${error.message}`)
+    }
     const tools = listRegisteredTools()
     return tools.map(t => ({
       name: t.name,

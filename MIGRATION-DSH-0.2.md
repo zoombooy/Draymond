@@ -13,6 +13,7 @@
 - 知识检索：本地宿主直接调用 `src-electron/rag/index.js` 的 `searchKnowledgeBase`，不再经过 DSH 的 MCP 桥接。
 - Electron：包约束回到 `^42.2.0`（与 `package-lock.json` 一致），默认宿主不依赖 DSH 0.2 的原生模块白名单。
 - 完整 DSH web 通道：保留代码但默认关闭。只有显式设置 `O_HINO_LEGACY_DSH_WEB=1` 才走旧路径；SDK JSON-RPC 通道仍作为手动开启的兼容性实验入口。
+- 插件桥接日常对话：新增 `src-electron/agent/pluginBridge.js`，把 PluginHost 的工具镜像注册进日常对话 Agent 的工具表（前缀 `plugin__`），并在每轮 `agent-invoke` 中触发 `session/event` 与 `agent/pre-step`。因此插件工具能被 LLM 在对话中选择调用，知识注入插件与审批策略也在对话链路生效；内置知识检索工具不重复桥接。桥接失败一律降级为无插件，不阻断对话。
 
 因此本文下面 P0/P1/P2 中「patch 注入到 DSH 运行时」的描述属于历史验证路径。当前默认运行路径是本地 `PluginHost`，插件文件本身无需改动即可复用。
 

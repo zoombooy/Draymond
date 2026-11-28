@@ -351,6 +351,16 @@ function ensurePluginHost() {
   return pluginHost
 }
 
+/**
+ * 供 Agent 插件桥接层获取共享的 PluginHost 实例。
+ * 这里不调用 start()：由调用方决定初始化时机，避免在插件页未打开时就加载插件。
+ * 宿主为进程内单例，与插件页、IPC 通道共用同一实例，因此启停状态天然一致。
+ * @returns {Object} PluginHost 实例
+ */
+export function getSharedPluginHost() {
+  return ensurePluginHost()
+}
+
 function localHostStatus() {
   if (!pluginHost) return { ...state }
   const plugins = pluginHost.list()

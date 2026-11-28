@@ -99,10 +99,24 @@ export async function createAgent(modelConfig, options = {}) {
     logger: createLogger('Tool'),
     emit: () => {} // 占位，运行时覆盖
   }
+  // 把用户在插件页添加的第三方插件工具镜像注册进工具集，
+  // 这样 LLM 能在对话里像调用内置工具一样选择它们。
+  // 失败时降级为无插件，不影响 builtin 工具。
+  let bridgedToolCount = 0
+  try {
+    const { syncPluginTools } = await import('./pluginBridge.js')
+    bridgedToolCount = await syncPluginTools()
+  } catch (error) {
+    log.warn(`插件工具同步跳过: ${error.message}`)
+  }
+
   const builtinTools = buildLangChainTools(toolCtx)
   // 加载已添加的 MCP 服务器工具（外部工具，跨 invoke 复用连接）
   const mcpTools = await loadAgentMcpTools()
   const tools = [...builtinTools, ...mcpTools]
+  if (bridgedToolCount > 0) {
+    log.info(`已桥接 ${bridgedToolCount} 个插件工具到对话工具集`)
+  }
   log.info(`工具集构建完成: ${builtinTools.length} 内置 + ${mcpTools.length} MCP = ${tools.length} 个工具`)
 
   // 6. 构建 interruptOn 配置（需审批的工具）
@@ -161,6 +175,9 @@ export async function createAgent(modelConfig, options = {}) {
       '- 抓取网页正文（fetch_webpage_text，自动去除导航/广告等非正文内容）\n' +
       (mcpTools.length > 0
         ? `## 外部 MCP 工具\n用户已连接 ${mcpTools.length} 个外部 MCP 工具（工具名以 \`mcp__\` 开头，格式为 \`mcp__服务器名__工具名\`）。这些工具来自用户添加的 MCP 服务器，可直接调用。调用前请阅读工具描述确认参数与用途。\n\n`
+        : '') +
+      (bridgedToolCount > 0
+        ? `## 用户插件工具\n用户安装了 ${bridgedToolCount} 个插件工具（工具名以 plugin__ 开头）。这些工具来自用户添加的插件包，调用前请阅读工具描述确认参数与用途；写操作时需要用户审批。\n\n`
         : '') +
       '## 文件存放约束（强制）\n' +
       `Agent 工作区根目录绝对路径：${rootDir}\n` +

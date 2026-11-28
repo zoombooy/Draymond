@@ -281,6 +281,29 @@ node --test scripts/tests/plugin-host.test.mjs \
 5. 工具测试区选择 `mcp__o-hino__retrieve_knowledge`，传入 `{"query":"...","topK":3}`，应返回知识片段或“未在知识库中检索到相关内容”。
 6. 需要 DSH ids 兼容验证时，手动切到「DSH 可选通道」页启动 SDK；默认不要依赖该通道。
 
+### 插件接入日常对话（桥接层）
+
+插件页里的第三方工具已桥接进日常对话 Agent，不再只能手动点调用：
+
+- 新增 `src-electron/agent/pluginBridge.js`：
+  - `syncPluginTools()` 在每次 `createAgent()` 前把 PluginHost 工具镜像注册为 `plugin__<原名>`，复用 registry 的日志/审计/`agent-tool-*`/审批包装；跳过宿主内置的 `mcp__o-hino__*`（对话已有内置 `retrieve_knowledge`）。
+  - `runPluginPreStep()` 在每轮 `agent-invoke` 中触发 `session/event` 和 `agent/pre-step`，并消费上一轮 `agent.inject()` 排队的知识消息。
+  - 桥接失败一律 try/catch 降级为无插件，不阻断对话。
+- `src-electron/agent/tools/registry.js` 新增 `unregisterTool()`；`src-electron/harness/index.js` 新增 `getSharedPluginHost()`；`src-electron/agent/index.js` 与 `ipc.js` 埋入同步与事件触发点。
+- 第三方插件工具一律要求审批（`requireApproval: true`），走 Friday 现有的 `ToolApprovalDialog`，与内置写操作审批体验一致。
+
+新增 `scripts/tests/plugin-bridge.test.mjs`（5 例）：
+
+| 用例 | 结果 |
+|---|---|
+| 插件工具镜像注册为 `plugin__` 前缀且跳过宿主内置工具 | 通过 |
+| 桥接工具的 handler 能真正调用到插件工具 | 通过 |
+| 再次同步会注销上一轮工具，插件停用后不再出现 | 通过 |
+| `runPluginPreStep` 触发 `session/event` 并合并 pre-step 消息 | 通过 |
+| 上一轮 `agent.inject()` 排队的知识插入用户输入之前 | 通过 |
+
+**端到端验证方式**：插件页添加并启用 office 插件后，直接在 Friday 对话里说「帮我读取 D:\office-work 下 xxx.docx 的内容」，Agent 工具列表应出现 `plugin__office_docs_read` 等工具并可选择调用；调用写类工具（如 `plugin__office_docs_write`）应弹出 Friday 的审批框。全量单测：`node --test scripts/tests/*.test.mjs` → 实测 **55/55**（含桥接 5 例）。
+
 ### 依赖说明
 
 `package.json` 的 `electron` 已回到 `^42.2.0`，与 `package-lock.json` 一致；默认本地宿主不依赖 DSH 0.2 的 Electron 43 原生模块白名单。第三方 `.tgz` 插件解压显式依赖 `tar@^7.5.2`（已写入 `package.json` 与 `package-lock.json`）。若后续启用完整 DSH 通道，再按历史记录单独升级 Electron 与 peer 依赖。
