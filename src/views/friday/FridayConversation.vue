@@ -447,6 +447,14 @@ async function handleCopyMessage(index) {
     });
     await navigator.clipboard.write([clipboardItem]);
     showToast(t('friday.copySuccess'));
+    // 反馈信号：复制答案视为正向信号，供数据飞轮归因
+    try {
+      await electronService.invoke('log_feedback', {
+        sessionId: currentSessionId.value || null,
+        type: 'answer_copied',
+        metadata: { messageId: messages.value[index]?.id ?? null, mode: currentMode.value }
+      });
+    } catch (_e) { /* 反馈记录失败不影响复制 */ }
   } catch (err) {
     console.error('Failed to copy message:', err);
     showToast(t('friday.copyFailed'));
@@ -498,6 +506,14 @@ async function executeRollback() {
       messageId: pendingRollbackUserMsgId
     });
     const userMsgContent = messages.value[pendingRollbackUserMsgIndex].content;
+    // 反馈信号：回滚代表对已有答案不满意，记为负向信号
+    try {
+      await electronService.invoke('log_feedback', {
+        sessionId: currentSessionId.value,
+        type: 'answer_discarded',
+        metadata: { messageId: pendingRollbackUserMsgId, mode: currentMode.value }
+      });
+    } catch (_e) { /* 反馈记录失败不影响回滚 */ }
     messages.value = messages.value.slice(0, pendingRollbackUserMsgIndex);
     inputText.value = userMsgContent;
     scrollToBottom();

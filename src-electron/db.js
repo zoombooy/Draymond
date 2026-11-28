@@ -304,6 +304,20 @@ async function initDatabase() {
     );
   `)
 
+  // agent_feedback: 数据飞轮的反馈信号（审批拒绝、答案复制/丢弃、评分等）
+  db.run(`
+    CREATE TABLE IF NOT EXISTS agent_feedback (
+      id TEXT PRIMARY KEY,
+      runId TEXT,
+      sessionId TEXT,
+      type TEXT NOT NULL,
+      toolName TEXT,
+      value INTEGER DEFAULT 0,
+      metadata TEXT,
+      createdAt TEXT NOT NULL
+    );
+  `)
+
   // automation_tasks: 本地 DeepAgent 定时任务。cronExpression 使用本机时区的五字段 Cron。
   db.run(`
     CREATE TABLE IF NOT EXISTS automation_tasks (
@@ -644,6 +658,53 @@ export function getMessages(sessionId) {
     }
     return row
   })
+}
+
+// ========== agent_feedback 表 CRUD（数据飞轮反馈信号） ==========
+
+/**
+ * 记录一条反馈信号
+ * @param {Object} args { runId?, sessionId?, type, toolName?, value?, metadata? }
+ * type 建议值：approval_rejected / answer_copied / answer_discarded / rating / retry
+ */
+export function logFeedback({ runId = null, sessionId = null, type, toolName = null, value = 0, metadata = null } = {}) {
+  const id = generateId()
+  const now = nowISO()
+  const metadataStr = typeof metadata === 'string' ? metadata : JSON.stringify(metadata || {})
+  db.run(
+    'INSERT INTO agent_feedback (id, runId, sessionId, type, toolName, value, metadata, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, runId, sessionId, type, toolName, value, metadataStr, now]
+  )
+  saveDb()
+  return { id, runId, sessionId, type, toolName, value, createdAt: now }
+}
+
+/**
+ * 查询反馈信号
+ * @param {Object} args { sessionId?, runId?, type?, limit? }
+ */
+export function listFeedback({ sessionId = null, runId = null, type = null, limit = 100 } = {}) {
+  let sql = 'SELECT * FROM agent_feedback WHERE 1=1'
+  const params = []
+  if (sessionId) { sql += ' AND sessionId = ?'; params.push(sessionId) }
+  if (runId) { sql += ' AND runId = ?'; params.push(runId) }
+  if (type) { sql += ' AND type = ?'; params.push(type) }
+  sql += ' ORDER BY createdAt DESC LIMIT ?'
+  params.push(limit)
+  const rows = queryAll(sql, params)
+  return rows.map(row => {
+    if (row.metadata && typeof row.metadata === 'string') {
+      try { row.metadata = JSON.parse(row.metadata) } catch (_e) { /* 保留原字符串 */ }
+    }
+    return row
+  })
+}
+
+/** 删除一条反馈信号（用于清理测试/误报数据） */
+export function deleteFeedback(id) {
+  db.run('DELETE FROM agent_feedback WHERE id = ?', [id])
+  saveDb()
+  return true
 }
 
 export function rollbackSession(sessionId, messageId) {

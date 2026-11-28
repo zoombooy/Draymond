@@ -176,6 +176,51 @@ export function listToolLogs({ threadId = null, toolName = null, limit = 100 } =
   return queryAllRaw(sql, params)
 }
 
+/**
+ * 工具健康度聚合：按工具名统计调用量 / 失败率 / P95 耗时 / 重试率。
+ * 重试近似为同一 requestId 内对同一工具的重复调用（参数指纹不在审计日志中，故用次数近似）。
+ * @param {Object} args { days?, limit? }
+ * @returns {Array<{toolName,calls,failures,failureRate,retries,retryRate,p95DurationMs,avgDurationMs}>}
+ */
+export function getToolHealth({ days = 7, limit = 100 } = {}) {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+  const rows = queryAllRaw(
+    'SELECT toolName, requestId, status, durationMs FROM agent_tool_logs WHERE createdAt >= ?',
+    [since]
+  )
+  const groups = new Map()
+  for (const row of rows) {
+    let g = groups.get(row.toolName)
+    if (!g) {
+      g = { toolName: row.toolName, calls: 0, failures: 0, durations: [], byRequest: new Map() }
+      groups.set(row.toolName, g)
+    }
+    g.calls++
+    if (row.status !== 'success') g.failures++
+    g.durations.push(row.durationMs || 0)
+    const key = row.requestId || '__no_request__'
+    g.byRequest.set(key, (g.byRequest.get(key) || 0) + 1)
+  }
+  const result = []
+  for (const g of groups.values()) {
+    const sorted = [...g.durations].sort((a, b) => a - b)
+    const p95 = sorted.length ? sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1)] : 0
+    let retries = 0
+    for (const count of g.byRequest.values()) if (count > 1) retries++
+    result.push({
+      toolName: g.toolName,
+      calls: g.calls,
+      failures: g.failures,
+      failureRate: g.calls ? Number((g.failures / g.calls).toFixed(4)) : 0,
+      retries,
+      retryRate: g.byRequest.size ? Number((retries / g.byRequest.size).toFixed(4)) : 0,
+      p95DurationMs: p95,
+      avgDurationMs: g.calls ? Math.round(g.durations.reduce((a, b) => a + b, 0) / g.calls) : 0
+    })
+  }
+  return result.sort((a, b) => b.calls - a.calls).slice(0, limit)
+}
+
 // ========== StoreBackend 双向同步 ==========
 
 /**

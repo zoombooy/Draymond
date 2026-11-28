@@ -786,6 +786,18 @@ async function streamAgentWithHITL({ agent, input, config, requestId, mainWindow
           log.info(`用户已拒绝: ${decision.reason}`)
           approvalToolSeg.status = 'rejected'
           approvalToolSeg.output = decision.reason || '用户拒绝'
+          // 反馈信号：审批拒绝是工具/权限设计的负向信号，喂给数据飞轮
+          try {
+            db.logFeedback({
+              runId: requestId,
+              sessionId: config?.configurable?.thread_id || null,
+              type: 'approval_rejected',
+              toolName: approvalToolName,
+              metadata: { reason: decision.reason || '' }
+            })
+          } catch (e) {
+            log.warn(`记录审批拒绝反馈失败: ${e.message}`)
+          }
         }
 
         // 构造 Command resume 继续执行

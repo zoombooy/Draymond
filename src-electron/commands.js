@@ -28,6 +28,7 @@ import { resolveDataDir, setDataDirPointer, clearDataDirPointer } from './data-d
 import { listProviderModels } from './modelCatalog.js'
 import { testChatModel, testEmbeddingModel } from './modelTest.js'
 import { registerAgentCommands } from './agent/ipc.js'
+import { listToolLogs, getToolHealth } from './agent/memory.js'
 import {
   registerHarnessCommands,
   syncHarnessConfigurationIfRunning
@@ -629,6 +630,27 @@ export function registerCommands(mainWindow) {
   ipcMain.handle('stop_chat', (_event, args) => {
     cancelTokens.cancel(args.requestId)
     return true
+  })
+
+  // ===== 数据飞轮：工具观测与反馈信号 =====
+  ipcMain.handle('list_tool_logs', (_event, args) => {
+    return listToolLogs(args || {})
+  })
+
+  ipcMain.handle('get_tool_health', (_event, args) => {
+    return getToolHealth(args || {})
+  })
+
+  ipcMain.handle('log_feedback', (_event, args) => {
+    return db.logFeedback(args || {})
+  })
+
+  ipcMain.handle('list_feedback', (_event, args) => {
+    return db.listFeedback(args || {})
+  })
+
+  ipcMain.handle('delete_feedback', (_event, args) => {
+    return db.deleteFeedback(args.id)
   })
 
   ipcMain.handle('get_notes', (_event, args) => {
