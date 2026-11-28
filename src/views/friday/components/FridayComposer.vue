@@ -211,6 +211,10 @@
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
             <input v-model="modelSearch" class="model-search-input" type="text" :placeholder="t('friday.searchModel')" @click.stop />
           </div>
+          <div v-if="isArenaMode" class="arena-hint-row">
+            <span>{{ t('friday.arenaSelectHint') }}</span>
+            <span class="arena-count">{{ fridayStore.arenaModelIds.length }}/4</span>
+          </div>
           <div class="model-row model-think-row">
             <span class="model-label">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
@@ -228,8 +232,8 @@
                 v-for="model in group.models"
                 :key="model.id"
                 class="model-item"
-                :class="{ active: fridayStore.modelId === model.id }"
-                @click="selectModel(model.id)"
+                :class="{ active: isArenaMode ? fridayStore.arenaModelIds.includes(model.id) : fridayStore.modelId === model.id }"
+                @click="isArenaMode ? toggleArenaModel(model.id) : selectModel(model.id)"
               >
                 <img :src="model.icon" class="model-icon" alt="" />
                 <div class="model-info">
@@ -245,7 +249,7 @@
                     <span v-if="model.embeddingName" class="cap-badge cap-embedding">{{ t('friday.embedding') }}</span>
                   </div>
                 </div>
-                <svg v-if="fridayStore.modelId === model.id" class="model-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                <svg v-if="isArenaMode ? fridayStore.arenaModelIds.includes(model.id) : fridayStore.modelId === model.id" class="model-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
               </div>
             </template>
             <div v-if="groupedModels.length === 0" class="model-empty">{{ t('friday.selectModel') }}</div>
@@ -365,7 +369,13 @@ const currentModeLabel = computed(() => {
 });
 
 const currentModel = computed(() => customModels.value.find(item => item.id === fridayStore.modelId) || null);
+const isArenaMode = computed(() => fridayStore.mode === 'arena');
+
 const currentModelName = computed(() => {
+  if (isArenaMode.value) {
+    const count = fridayStore.arenaModelIds.length;
+    return count ? `${t('friday.modeArena')} · ${count}` : t('friday.modeArena');
+  }
   if (!currentModel.value) return t('friday.selectModel');
   const thinkLabel = fridayStore.thinkMode === 'deep' ? `· ${t('friday.thinkDeep')}` : `· ${t('friday.thinkFast')}`;
   return `${currentModel.value.modelName} ${thinkLabel}`;
@@ -473,6 +483,10 @@ function selectMode(mode) {
 function selectModel(modelId) {
   fridayStore.setModelId(modelId);
   showModelDropdown.value = false;
+}
+
+function toggleArenaModel(modelId) {
+  fridayStore.toggleArenaModelId(modelId);
 }
 
 function selectWorkspace(id) {
@@ -675,7 +689,8 @@ function handleSend() {
     thinkMode: fridayStore.thinkMode,
     workspaceId: workspace?.id || 'none',
     workspaceName: workspace?.id === 'none' ? t('friday.noWorkspace') : (workspace?.name || t('friday.noWorkspace')),
-    folderPath: workspace?.path || ''
+    folderPath: workspace?.path || '',
+    arenaModelIds: [...fridayStore.arenaModelIds]
   });
   attachments.value = [];
 }
@@ -1083,6 +1098,21 @@ onDeactivated(closeAllDropdowns);
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.arena-hint-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 4px;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.arena-count {
+  color: #10b981;
+  font-weight: 600;
 }
 
 .model-think-row {

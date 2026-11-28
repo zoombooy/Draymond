@@ -348,3 +348,14 @@ node --test scripts/tests/plugin-host.test.mjs \
 - 底部新增「新建项目」与「从历史对话添加」；后者展开子菜单，只列出带 `folderPath` 的历史会话，点击即以会话标题为名新建项目并选中。
 - 后端配合：`sessions` 表新增 `folderPath` 列（含旧库迁移），`createSession` 支持第三参数，`agent-invoke` / `chat_with_memory` 在创建与复用会话时记录当前工作区目录。旧版 `default` 工作区自动收敛为 `none`。
 - 验证：语法/SFC 编译通过；单测 56/56；`vite build` 14.82s 成功；CDP 实测面板搜索框、不使用项目勾选态、空状态、底部两项、历史子菜单（自动过滤无目录会话）及点击恢复项目均正常，截图无重叠。
+
+### 竞技模式真实实现（2026-11-28）
+
+竞技模式此前只是入口（复用 Agent 通道），现改为真正的多模型并跑对比：
+
+- `useChatStream.js`：新增 `arenaRuns` / `activeArenaRun` / `stopArenaRun`。每个参赛模型创建独立 state 与 `requestId`，复用现有 `chat-chunk` / `chat-done` 事件路由，并发调用 `chat_without_memory`（不落库、无多模型工具审批冲突）。完成后答案从最终消息读取（流式内容在 done 后会清空），耗时按各模型 done 时刻计算。未选模型时自动补齐至少 2 个，已选则严格尊重（上限 4）。
+- `friday store`：新增 `arenaModelIds`（localStorage 持久化，最多 4 个）与 `toggleArenaModelId()`；模型下拉在竞技模式下变为多选，触发按钮显示「竞技模式 · N」。
+- `ArenaComparison.vue`（新增）：并排卡片展示各模型的平台图标、名称、实时/最终答案、状态徽章、耗时与复制按钮；`FridayConversation.vue` 在竞技 run 进行中显示停止按钮，完成后恢复发送态。
+- i18n：zh-CN / en-US 补齐竞技文案。
+
+验证：单测 56/56；`vite build` 14.75s 成功；CDP + IPC mock 端到端实测——选中 2 个模型后仅发出 2 个独立 `chat_without_memory` 请求（requestId 各不相同），两张结果卡片均正确显示答案与不同耗时，完成后输入框恢复发送态、停止按钮消失，截图无重叠。

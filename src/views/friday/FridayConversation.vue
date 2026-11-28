@@ -37,7 +37,12 @@
           />
         </template>
 
+        <ArenaComparison
+          v-if="activeArenaRun && currentMode === 'arena'"
+          :run="activeArenaRun"
+        />
         <StreamingAssistantMessage
+          v-else
           :state="streamingState"
           :mode="currentMode"
           :display-name="t('friday.assistantName')"
@@ -50,7 +55,7 @@
       v-if="!isShareMode"
       :model-binding="composerBinding"
       variant="conversation"
-      :is-streaming="isStreaming"
+      :is-streaming="isStreaming || (!!activeArenaRun && !activeArenaRun.finishedAt)"
       :placeholder="t('friday.inputPlaceholder')"
       @send="handleComposerSend"
       @stop="handleStop"
@@ -103,6 +108,7 @@ import RollbackConfirmDialog from '@/components/chat/RollbackConfirmDialog.vue';
 import ToolApprovalDialog from '@/components/chat/ToolApprovalDialog.vue';
 import AgentMessageBlock from '@/views/friday/components/AgentMessageBlock.vue';
 import StreamingAssistantMessage from '@/components/chat/StreamingAssistantMessage.vue';
+import ArenaComparison from '@/views/friday/components/ArenaComparison.vue';
 import FridayComposer from '@/views/friday/components/FridayComposer.vue';
 import { useChatStream } from '@/views/friday/composables/useChatStream';
 import { refreshHistorySessions } from '@/views/friday/composables/useConversationHistory';
@@ -148,6 +154,7 @@ const { toastVisible, toastMessage, showToast } = useToast();
 const {
   tabKey,
   messages,
+  activeArenaRun,
   currentSessionId,
   currentMode,
   isStreaming,

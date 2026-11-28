@@ -1,9 +1,9 @@
-import { computed, nextTick, onUnmounted, reactive, shallowRef } from 'vue';
+import { computed, nextTick, onUnmounted, reactive, ref, shallowRef, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { electronService } from '@/services/electron';
 import { useFridayStore, useTabStore } from '@/store';
 import { getFridayTabId, isNewSessionId } from '@/utils/fridayNavigation';
-import { loadModelConfig } from '@/views/friday/composables/useModelCatalog';
+import { loadCustomModelsFromStorage, loadModelConfig } from '@/views/friday/composables/useModelCatalog';
 
 const streamRuntimes = new Map();
 
@@ -18,6 +18,8 @@ function createChatStreamRuntime({ key, router, fridayStore, t }) {
   // 每个会话拥有独立的流式状态：切换会话时旧会话仍在后台继续接收事件，
   // 新会话使用自己的状态，互不覆盖。
   const states = new Map();
+  // 竞技模式：一次提问对应多个独立 state，按 requestId 复用现有事件路由
+  const arenaRuns = ref([]);
   let newSeq = 0;
   let viewCount = 0;
   let disposed = false;
@@ -41,7 +43,8 @@ function createChatStreamRuntime({ key, router, fridayStore, t }) {
       isDoneReceived: false,
       pendingContent: '',
       pendingReasoning: '',
-      chunkFrame: null
+      chunkFrame: null,
+      arenaRunId: ''
     });
     states.set(mapKey, state);
     return state;
@@ -237,14 +240,15 @@ function createChatStreamRuntime({ key, router, fridayStore, t }) {
     state.sessionTitle = '';
     state.activeRequestId = '';
     state.isDoneReceived = false;
+    state.arenaRunId = '';
   }
 
   function resetStreamState() {
     resetStateStream(activeState.value);
   }
 
-  function startStreaming() {
-    const state = activeState.value;
+  function startStreaming(targetState = null) {
+    const state = targetState || activeState.value;
     clearPendingChunks(state);
     setStreaming(state, true);
     state.streamingContent = '';
@@ -313,7 +317,7 @@ function createChatStreamRuntime({ key, router, fridayStore, t }) {
     return merged;
   }
 
-  async function invokeChat(state, { mode, model, userMessage, attachments, thinkMode, kbName, kbCategoryId, folderPath }) {
+  async function invokeChat(state, { mode, model, userMessage, attachments, thinkMode, kbName, kbCategoryId, folderPath, channel }) {
     const enableThinking = thinkMode === 'deep';
     const args = toIpcPayload({
       requestId: state.activeRequestId,
@@ -326,9 +330,9 @@ function createChatStreamRuntime({ key, router, fridayStore, t }) {
       kbCategoryId: kbCategoryId || '',
       folderPath: folderPath || ''
     });
-    // 创造模式、竞技模式均复用 Agent 运行时（工具/文件写入可用）；
-    // arena 的多模型并跑后续在此扩展，当前先以 Agent 通道承接。
-    if (mode === 'agent' || mode === 'create' || mode === 'arena') {
+    // 竞技模式由 createArenaRun 显式指定 chat_without_memory 通道，避免多模型工具审批冲突
+    if (channel) return electronService.invoke(channel, args);
+    if (mode === 'agent' || mode === 'create') {
       return electronService.invoke('agent-invoke', args);
     }
     if (mode === 'chat') {
@@ -336,6 +340,112 @@ function createChatStreamRuntime({ key, router, fridayStore, t }) {
     }
     return electronService.invoke('chat_without_memory', args);
   }
+
+  function resolveArenaModels(preferredIds, primaryModelId) {
+    const seen = new Set();
+    const picked = [];
+    const add = (id) => {
+      if (!id || seen.has(id) || picked.length >= 4) return;
+      const config = loadModelConfig(id);
+      if (!config) return;
+      seen.add(id);
+      picked.push(config);
+    };
+    for (const id of preferredIds || []) add(id);
+    // 用户已明确选择时严格尊重；未选或只选 1 个时才补齐到至少 2 个
+    if (picked.length < 2) {
+      add(primaryModelId);
+      for (const model of loadCustomModelsFromStorage() || []) {
+        if (picked.length >= 2) break;
+        add(model.id);
+      }
+    }
+    return picked;
+  }
+
+  function checkArenaDone(run) {
+    if (!run || run.finishedAt) return;
+    if (run.participants.length && run.participants.every(p => p.done || p.error)) {
+      run.finishedAt = Date.now();
+    }
+  }
+
+  // 竞技模式：同一问题并发发给多个模型，每个模型拥有独立 state / requestId，
+  // 复用现有 chat-chunk / chat-done 事件路由；走无记忆通道避免多模型工具审批互相干扰。
+  function createArenaRun(mainState, { userMessage, preferredIds, primaryModelId, attachments, thinkMode, kbName, kbCategoryId, folderPath }) {
+    const configs = resolveArenaModels(preferredIds, primaryModelId);
+    const run = reactive({
+      id: `arena_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      userMessage,
+      createdAt: Date.now(),
+      finishedAt: 0,
+      participants: []
+    });
+    arenaRuns.value.push(run);
+    mainState.arenaRunId = run.id;
+
+    watch(
+      () => run.participants.map(p => p.state.isDoneReceived || !!p.error),
+      (flags) => {
+        if (flags.length && flags.every(Boolean)) checkArenaDone(run);
+      }
+    );
+
+    for (const model of configs) {
+      const state = createState(`arena-${run.id}-${model.id}`, '');
+      state.mode = 'chat';
+      const startedAt = Date.now();
+      const participant = reactive({
+        modelId: model.id,
+        modelName: model.modelName || model.id,
+        providerLabel: model.providerLabel || model.provider || '',
+        provider: model.provider || '',
+        state,
+        startedAt,
+        // 流式时显示实时文本，完成后 stream 状态会被清空，改从最终消息取完整答案
+        content: computed(() => {
+          const assistant = [...state.messages].reverse().find(msg => msg.role === 'assistant');
+          return assistant?.content || state.streamingContent;
+        }),
+        reasoning: computed(() => state.streamingReasoning),
+        streaming: computed(() => state.isStreaming),
+        done: computed(() => state.isDoneReceived),
+        error: '',
+        elapsedMs: 0
+      });
+      run.participants.push(participant);
+
+      watch(() => state.isDoneReceived, (done) => {
+        if (done && !participant.elapsedMs) participant.elapsedMs = Date.now() - startedAt;
+      });
+      startStreaming(state);
+      invokeChat(state, {
+        mode: 'arena',
+        model,
+        userMessage,
+        attachments: attachments || [],
+        thinkMode,
+        kbName: kbName || '',
+        kbCategoryId: kbCategoryId || '',
+        folderPath: folderPath || '',
+        channel: 'chat_without_memory'
+      }).then(() => {
+        checkArenaDone(run);
+      }).catch((err) => {
+        participant.error = err?.message || hooks.t('friday.retryLater');
+        participant.elapsedMs = Date.now() - startedAt;
+        setStreaming(state, false);
+        state.isDoneReceived = true;
+        checkArenaDone(run);
+      });
+    }
+    return run;
+  }
+
+  const activeArenaRun = computed(() => {
+    const id = activeState.value.arenaRunId;
+    return id ? (arenaRuns.value.find(run => run.id === id) || null) : null;
+  });
 
   async function sendChatMessage(payload, { skipUserPush = false, skipStart = false } = {}) {
     const state = activeState.value;
@@ -360,9 +470,24 @@ function createChatStreamRuntime({ key, router, fridayStore, t }) {
 
     const userMessage = data.userMessage || data.text;
     if (!skipUserPush) state.messages.push({ role: 'user', content: userMessage });
-    if (!skipStart) startStreaming();
 
     await nextTick();
+
+    if (mode === 'arena') {
+      createArenaRun(state, {
+        userMessage,
+        preferredIds: data.arenaModelIds || fridayStore.arenaModelIds || [],
+        primaryModelId: modelId,
+        attachments: data.attachments || [],
+        thinkMode: data.thinkMode || fridayStore.thinkMode,
+        kbName: data.kbName || '',
+        kbCategoryId: data.kbCategoryId || '',
+        folderPath: data.folderPath || ''
+      });
+      return true;
+    }
+
+    if (!skipStart) startStreaming();
 
     invokeChat(state, {
       mode,
@@ -391,8 +516,16 @@ function createChatStreamRuntime({ key, router, fridayStore, t }) {
     }
   }
 
+  async function stopArenaRun(run = activeArenaRun.value) {
+    if (!run) return;
+    await Promise.all(run.participants.map(p => stopState(p.state)));
+    if (!run.finishedAt) run.finishedAt = Date.now();
+  }
+
   async function handleStop() {
-    return stopState(activeState.value);
+    const state = activeState.value;
+    if (state.arenaRunId) return stopArenaRun();
+    return stopState(state);
   }
 
   // 关闭 Tab 时终止该 Tab 下所有会话仍在进行的请求
@@ -718,6 +851,9 @@ function createChatStreamRuntime({ key, router, fridayStore, t }) {
       return anyStreaming();
     },
     messages,
+    arenaRuns,
+    activeArenaRun,
+    stopArenaRun,
     currentSessionId,
     currentMode,
     isStreaming,
@@ -771,6 +907,9 @@ export function useChatStream({ onHistoryRefresh, t, tabKey } = {}) {
   return {
     tabKey: runtime.key,
     messages: runtime.messages,
+    arenaRuns: runtime.arenaRuns,
+    activeArenaRun: runtime.activeArenaRun,
+    stopArenaRun: runtime.stopArenaRun,
     currentSessionId: runtime.currentSessionId,
     currentMode: runtime.currentMode,
     isStreaming: runtime.isStreaming,

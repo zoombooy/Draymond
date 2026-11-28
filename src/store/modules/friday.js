@@ -4,6 +4,7 @@ const MODE_KEY = 'o-hino-chat-mode'
 const THINK_KEY = 'o-hino-think-mode'
 const SELECTED_MODEL_KEY = 'o-hino-selected-model'
 const SELECTED_WORKSPACE_KEY = 'o-hino-selected-workspace'
+const ARENA_MODELS_KEY = 'o-hino-arena-models'
 const HISTORY_WIDTH_KEY = 'o-hino-history-sidebar-width'
 const HISTORY_SESSIONS_KEY = 'o-hino-history-sessions'
 const DEFAULT_HISTORY_WIDTH = 240
@@ -56,6 +57,14 @@ export const useFridayStore = defineStore('friday', {
     })(),
     pendingLaunches: {},
     streamingByTab: {},
+    arenaModelIds: (() => {
+      try {
+        const value = JSON.parse(localStorage.getItem(ARENA_MODELS_KEY) || '[]')
+        return Array.isArray(value) ? value.filter(id => typeof id === 'string').slice(0, 4) : []
+      } catch {
+        return []
+      }
+    })(),
     historySessions: loadCachedHistorySessions(),
     historySidebarWidth: loadHistorySidebarWidth()
   }),
@@ -75,6 +84,20 @@ export const useFridayStore = defineStore('friday', {
     setWorkspaceId(workspaceId) {
       this.workspaceId = workspaceId
       writeStorage(SELECTED_WORKSPACE_KEY, workspaceId)
+    },
+    setArenaModelIds(ids) {
+      const normalized = Array.isArray(ids)
+        ? ids.filter(id => typeof id === 'string').slice(0, 4)
+        : []
+      this.arenaModelIds = normalized
+      writeStorage(ARENA_MODELS_KEY, JSON.stringify(normalized))
+    },
+    toggleArenaModelId(id) {
+      const list = [...this.arenaModelIds]
+      const index = list.indexOf(id)
+      if (index >= 0) list.splice(index, 1)
+      else if (list.length < 4) list.push(id)
+      this.setArenaModelIds(list)
     },
     setPendingLaunch(tabId, payload) {
       const key = tabId || '_default'
