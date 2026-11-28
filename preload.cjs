@@ -51,6 +51,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'get-drawing-share-link',
       'chat_with_memory',
       'chat_without_memory',
+      'arena_start',
+      'arena_save_result',
       'stop_chat',
       'note_ai_action',
       'stop_note_ai',

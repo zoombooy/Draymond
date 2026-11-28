@@ -14,7 +14,7 @@
 
     <main ref="messagesContainer" class="conversation-messages">
       <div class="messages-inner">
-        <template v-for="(msg, index) in messages" :key="msg.id ?? index">
+        <template v-for="(msg, index) in displayMessages" :key="msg.id ?? index">
           <UserMessage v-if="msg.role === 'user'" :content="msg.content" />
           <AgentMessageBlock
             v-else-if="msg.segments && msg.segments.length > 0"
@@ -34,6 +34,10 @@
             :show-actions="!isShareMode"
             :show-rollback="currentMode === 'chat'"
             @action="(type) => handleAction(type, index)"
+          />
+          <ArenaComparison
+            v-if="msg.role === 'user' && msg.arenaRunId && arenaRunByUserMessage[msg.id]"
+            :run="arenaRunByUserMessage[msg.id]"
           />
         </template>
 
@@ -196,6 +200,41 @@ const streamingState = {
 const isConversationVisible = computed(() => {
   if (isShareMode.value) return true;
   return tabStore.activeTabId === tabKey && (route.name === 'friday-chat' || route.name === 'share');
+});
+
+// 竞技消息历史回看：assistant 消息带 metadata.arena，按 arenaRunId 聚合回对比卡片，
+// 同时从普通消息列表中剔除，避免在历史记录里既是多个 AI 气泡又是对比卡片。
+const displayMessages = computed(() => messages.value.filter(msg => !(msg.role === 'assistant' && msg.arena)));
+
+const arenaRunByUserMessage = computed(() => {
+  const result = {};
+  const resultsByRun = new Map();
+  for (const msg of messages.value) {
+    if (msg.role !== 'assistant' || !msg.arena?.arenaRunId) continue;
+    if (!resultsByRun.has(msg.arena.arenaRunId)) resultsByRun.set(msg.arena.arenaRunId, []);
+    resultsByRun.get(msg.arena.arenaRunId).push(msg);
+  }
+  for (const msg of messages.value) {
+    if (msg.role !== 'user' || !msg.arenaRunId) continue;
+    const answers = resultsByRun.get(msg.arenaRunId) || [];
+    if (!answers.length) continue;
+    result[msg.id] = {
+      id: msg.arenaRunId,
+      userMessage: msg.content,
+      finishedAt: 1,
+      participants: answers.map(answer => ({
+        modelId: answer.arena.modelId,
+        modelName: answer.arena.modelName || answer.arena.modelId,
+        provider: answer.arena.provider,
+        providerLabel: answer.arena.providerLabel,
+        content: answer.content,
+        done: !answer.arena.error,
+        error: answer.arena.error,
+        elapsedMs: answer.arena.elapsedMs
+      }))
+    };
+  }
+  return result;
 });
 
 const chatTitle = computed(() => {

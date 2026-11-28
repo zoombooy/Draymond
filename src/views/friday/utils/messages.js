@@ -40,8 +40,23 @@ export function mapHistoryMessage(raw) {
   if (metadata?.segments && Array.isArray(metadata.segments)) {
     msg.segments = metadata.segments;
   }
-  if (raw.metadata?.sources && Array.isArray(raw.metadata.sources)) {
-    msg.sources = raw.metadata.sources;
+  if (metadata?.sources && Array.isArray(metadata.sources)) {
+    msg.sources = metadata.sources;
+  }
+  // 竞技模式：用户消息带 arenaRunId，模型答案带 arena 标记与模型信息
+  if (metadata?.arenaRunId) {
+    msg.arenaRunId = metadata.arenaRunId;
+  }
+  if (metadata?.arena) {
+    msg.arena = {
+      arenaRunId: metadata.arenaRunId || '',
+      modelId: metadata.modelId || '',
+      modelName: metadata.modelName || '',
+      provider: metadata.provider || '',
+      providerLabel: metadata.providerLabel || '',
+      elapsedMs: metadata.elapsedMs || 0,
+      error: metadata.error || ''
+    };
   }
   return msg;
 }

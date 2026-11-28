@@ -557,6 +557,75 @@ export function registerCommands(mainWindow) {
     }
   })
 
+  // 竞技模式落库：一次提问对应一个 session（mode=arena），先保存用户消息，
+  // 各模型完成后再以独立 assistant 消息落库，metadata 携带模型标识用于历史回看重建对比卡片。
+  ipcMain.handle('arena_start', async (_event, args) => {
+    const { sessionId, message, folderPath, arenaRunId, model } = args || {}
+    let currentSessionId = sessionId || ''
+    let isNewSession = false
+    try {
+      if (!currentSessionId || !db.getSession(currentSessionId)) {
+        const session = db.createSession(message.slice(0, 20) || '竞技对话', 'arena', folderPath || '')
+        currentSessionId = session.id
+        isNewSession = true
+      } else {
+        db.updateSessionFolderPath(currentSessionId, folderPath || '')
+      }
+
+      const userMsg = db.saveMessage(currentSessionId, 'user', message, { arenaRunId })
+      db.updateSessionTimestamp(currentSessionId)
+
+      if (isNewSession && model) {
+        const modelClone = { ...model }
+        const sessionIdClone = currentSessionId
+        setImmediate(async () => {
+          try {
+            const title = await generateTitle(modelClone, message)
+            db.updateSessionTitle(sessionIdClone, title)
+            mainWindow.webContents.send(SESSION_TITLE_UPDATED, {
+              sessionId: sessionIdClone,
+              title
+            })
+          } catch (_e) {
+          }
+        })
+      }
+
+      return { sessionId: currentSessionId, userMessageId: userMsg.id, arenaRunId }
+    } catch (e) {
+      mainWindow.webContents.send(CHAT_ERROR, {
+        requestId: arenaRunId || '',
+        sessionId: currentSessionId || null,
+        error: e?.message || String(e)
+      })
+      throw e
+    }
+  })
+
+  ipcMain.handle('arena_save_result', (_event, args) => {
+    const { sessionId, arenaRunId, modelId, modelName, provider, providerLabel, content, reasoning, elapsedMs, error } = args || {}
+    if (!sessionId || !db.getSession(sessionId)) return { success: false, error: 'Session not found' }
+
+    const metadata = {
+      arena: true,
+      arenaRunId: arenaRunId || '',
+      modelId: modelId || '',
+      modelName: modelName || modelId || '',
+      provider: provider || '',
+      providerLabel: providerLabel || '',
+      elapsedMs: Number(elapsedMs) || 0,
+      ...(error ? { error: String(error) } : {})
+    }
+    const assistantMsg = db.saveMessage(
+      sessionId,
+      'assistant',
+      content || '',
+      { ...metadata, ...db.buildAssistantMetadata({ reasoning }) }
+    )
+    db.updateSessionTimestamp(sessionId)
+    return { success: true, messageId: assistantMsg.id }
+  })
+
   ipcMain.handle('stop_chat', (_event, args) => {
     cancelTokens.cancel(args.requestId)
     return true

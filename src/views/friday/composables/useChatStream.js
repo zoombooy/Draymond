@@ -372,13 +372,16 @@ function createChatStreamRuntime({ key, router, fridayStore, t }) {
 
   // 竞技模式：同一问题并发发给多个模型，每个模型拥有独立 state / requestId，
   // 复用现有 chat-chunk / chat-done 事件路由；走无记忆通道避免多模型工具审批互相干扰。
-  function createArenaRun(mainState, { userMessage, preferredIds, primaryModelId, attachments, thinkMode, kbName, kbCategoryId, folderPath }) {
+  // 答案完成后统一落库到 mode=arena 的会话，历史回看时按 metadata.arena 重建对比卡片。
+  async function createArenaRun(mainState, { userMessage, preferredIds, primaryModelId, attachments, thinkMode, kbName, kbCategoryId, folderPath }) {
     const configs = resolveArenaModels(preferredIds, primaryModelId);
+    const runId = `arena_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const run = reactive({
-      id: `arena_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      id: runId,
       userMessage,
       createdAt: Date.now(),
       finishedAt: 0,
+      sessionId: '',
       participants: []
     });
     arenaRuns.value.push(run);
@@ -390,6 +393,48 @@ function createChatStreamRuntime({ key, router, fridayStore, t }) {
         if (flags.length && flags.every(Boolean)) checkArenaDone(run);
       }
     );
+
+    // 先取得真实 sessionId 并落库用户消息，让竞技会话立即出现在历史记录中。
+    // 失败则降级为不落库（保持原有纯对比行为），不阻断竞技本身。
+    try {
+      const primary = configs[0] || loadModelConfig(primaryModelId);
+      const started = await electronService.invoke('arena_start', {
+        sessionId: mainState.sessionId || '',
+        message: userMessage,
+        folderPath: folderPath || '',
+        arenaRunId: runId,
+        model: primary
+      });
+      if (started?.sessionId) {
+        run.sessionId = started.sessionId;
+        migrateStateKey(mainState, started.sessionId);
+        hooks.onHistoryRefresh?.();
+      }
+    } catch (err) {
+      console.error('Arena session start failed:', err);
+    }
+
+    function persistResult(participant, errorText = '') {
+      if (!run.sessionId || participant.persisted) return;
+      participant.persisted = true;
+      const assistant = [...participant.state.messages].reverse().find(msg => msg.role === 'assistant');
+      electronService.invoke('arena_save_result', {
+        sessionId: run.sessionId,
+        arenaRunId: run.id,
+        modelId: participant.modelId,
+        modelName: participant.modelName,
+        provider: participant.provider,
+        providerLabel: participant.providerLabel,
+        content: errorText ? '' : (participant.content || ''),
+        reasoning: assistant?.reasoning || '',
+        elapsedMs: participant.elapsedMs || 0,
+        error: errorText
+      }).then(() => {
+        hooks.onHistoryRefresh?.();
+      }).catch((err) => {
+        console.error('Arena result persist failed:', err);
+      });
+    }
 
     for (const model of configs) {
       const state = createState(`arena-${run.id}-${model.id}`, '');
@@ -411,7 +456,8 @@ function createChatStreamRuntime({ key, router, fridayStore, t }) {
         streaming: computed(() => state.isStreaming),
         done: computed(() => state.isDoneReceived),
         error: '',
-        elapsedMs: 0
+        elapsedMs: 0,
+        persisted: false
       });
       run.participants.push(participant);
 
@@ -430,12 +476,16 @@ function createChatStreamRuntime({ key, router, fridayStore, t }) {
         folderPath: folderPath || '',
         channel: 'chat_without_memory'
       }).then(() => {
+        // invoke resolve 时 chat-done 已处理完、assistant 消息已入 state.messages
+        participant.elapsedMs = participant.elapsedMs || (Date.now() - startedAt);
+        persistResult(participant);
         checkArenaDone(run);
       }).catch((err) => {
         participant.error = err?.message || hooks.t('friday.retryLater');
         participant.elapsedMs = Date.now() - startedAt;
         setStreaming(state, false);
         state.isDoneReceived = true;
+        persistResult(participant, participant.error);
         checkArenaDone(run);
       });
     }
