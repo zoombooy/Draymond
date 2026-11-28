@@ -20,12 +20,13 @@
 - 支持 SKILL 技能系统：从 `SKILL/` 目录加载 Markdown 技能描述
 - 支持子 Agent（subagents）与跨会话记忆（`/memories/` 下落盘的 Markdown 文件，Agent 可自主读写）
 
-### 🌐 DeepSeek Harness
+### 🧩 插件系统
 
-- 内置 DeepSeek Harness 运行时，可加载本地工具与知识库完成复杂任务
-- 内置工具统一以 `mcp__o-hino__*` 名称暴露给 Harness
-- 审批策略插件 `o-hino-tools`：敏感操作同样需要用户确认
-- 知识库注入插件 `o-hino-knowledge`：对话时自动带入相关知识
+- 借鉴 DeepSeek Harness（DSH）插件契约，但在 o-hino 主进程内实现轻量 `PluginHost`，默认不加载 DSH 运行时、不使用 iframe
+- 插件写法：`name` / `inject` / `apply(ctx, config)`；支持 `tools/pre-execute`、`agent/pre-step`、`session/event` 等钩子
+- 内置 `o-hino-tools`：敏感工具调用需用户确认；内置 `o-hino-knowledge`：对话时自动检索本地知识库并经 `agent.inject()` 注入上下文
+- 插件页支持第三方 bundle 的添加、移除与即时启停，并提供工具调用测试入口
+- 完整 DSH web / SDK 通道保留为可选兼容性实验能力，默认关闭（web 通道需设置 `O_HINO_LEGACY_DSH_WEB=1`）
 
 ### 📚 知识库
 
@@ -102,9 +103,9 @@
 
 ![自动化任务](docs/resource/6.png)
 
-### DeepSeek Harness
+### 插件系统
 
-![DeepSeek Harness](docs/resource/7.png)
+![插件系统](docs/resource/7.png)
 
 ### 设置
 
@@ -114,7 +115,7 @@
 
 ### 环境要求
 
-- Node.js >= 20（推荐 22；使用 DeepSeek Harness 需 >= 24.22.3）
+- Node.js >= 20（推荐 22；仅启用完整 DSH 可选通道时需 >= 24.22.3）
 - npm >= 10
 - macOS / Windows / Linux
 
@@ -192,7 +193,7 @@ o-hino/
 │   │   ├── drawing/         # 绘图
 │   │   ├── schedule/        # 日程
 │   │   ├── automation/      # 自动化任务
-│   │   ├── harness/         # DeepSeek Harness 界面
+│   │   ├── harness/         # 插件管理界面（可选 DSH 通道）
 │   │   ├── history/         # 历史版本
 │   │   └── settings/        # 设置
 │   ├── store/               # Pinia 状态模块
@@ -200,12 +201,12 @@ o-hino/
 │   └── router/              # 路由配置
 ├── src-electron/            # Electron 后端
 │   ├── agent/               # Agent 核心（工具/技能/子Agent/权限/记忆）
-│   ├── harness/             # DeepSeek Harness 运行时与知识注入
+│   ├── harness/             # 轻量 PluginHost、知识桥接、可选 DSH 通道
 │   ├── rag/                 # RAG 流程（加载/分块/向量化/检索）
 │   ├── db.js                # SQLite 数据库
 │   ├── llm.js               # LLM 适配
 │   └── python-env.js        # Python 运行时环境
-├── plugins/                 # Harness 插件（o-hino-tools / o-hino-knowledge）
+├── plugins/                 # 本地插件（o-hino-tools / o-hino-knowledge）
 ├── python/                  # Python 运行时下载脚本
 ├── scripts/                 # 构建辅助脚本
 └── .github/workflows/       # CI 构建工作流

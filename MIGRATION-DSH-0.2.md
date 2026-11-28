@@ -2,6 +2,20 @@
 
 本分支执行分析报告中 P0 + P1 + P2，目标是把项目从「外挂旧版 DSH Web UI」推进到「DSH 0.2.x 运行时 + 一等插件」，并让知识库与会话记忆进入 Harness 上下文。
 
+## 架构收敛：只借鉴能力，不加载 DSH 运行时（最新）
+
+早期实现走的是「iframe 加载完整 DSH + 网络层胶水」的验证路径，能跑通但耦合过重：cookie 捕获/转发、`sec-fetch-site` / `origin` / `referer` 改写、401 probe、Electron 43 精确版本、23 个 peer 包与原生二进制修复，都会把 o-hino 的启动稳定性绑在 DSH 上，`forbidden` 也来自这套来源校验。
+
+现已收敛为：
+
+- 默认宿主：`src-electron/harness/pluginHost.js`，在 o-hino 主进程内实现 DSH 插件契约的最小子集（`apply(ctx, config)`、`ctx.on`、`tools/pre-execute`、`agent/pre-step`、`ctx.tools.execute`、`agent.inject`）。
+- 默认 UI：`src/views/harness/DeepSeekHarness.vue` 改为本地插件管理页，不再加载 iframe；内置插件、第三方 bundle、审批队列、工具测试都在本地页完成。
+- 知识检索：本地宿主直接调用 `src-electron/rag/index.js` 的 `searchKnowledgeBase`，不再经过 DSH 的 MCP 桥接。
+- Electron：包约束回到 `^42.2.0`（与 `package-lock.json` 一致），默认宿主不依赖 DSH 0.2 的原生模块白名单。
+- 完整 DSH web 通道：保留代码但默认关闭。只有显式设置 `O_HINO_LEGACY_DSH_WEB=1` 才走旧路径；SDK JSON-RPC 通道仍作为手动开启的兼容性实验入口。
+
+因此本文下面 P0/P1/P2 中「patch 注入到 DSH 运行时」的描述属于历史验证路径。当前默认运行路径是本地 `PluginHost`，插件文件本身无需改动即可复用。
+
 ## 已完成的改动
 
 ### P0 依赖与配置对齐

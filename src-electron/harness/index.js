@@ -38,6 +38,7 @@ import {
   setBundleEnabled,
   toPatchEntries
 } from './bundleRegistry.js'
+import { PluginHost } from './pluginHost.js'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -45,6 +46,9 @@ const HARNESS_CONSUMER = 'deepseek-harness'
 const HARNESS_PROVIDER = 'o-hino'
 const HARNESS_CREDENTIAL = 'O_HINO_HARNESS_API_KEY'
 const MCP_SERVER_NAME = TOOL_BRIDGE_SERVER_NAME
+// 默认只运行 Draymond 自带的轻量 PluginHost。完整 DSH web / SDK 通道降级为
+// 可选实验能力，只有显式设置 O_HINO_LEGACY_DSH_WEB=1 才走旧路径。
+const LEGACY_DSH_ENABLED = process.env.O_HINO_LEGACY_DSH_WEB === '1'
 // Generous enough for a first boot on slow hardware (e.g. ARM boards): the
 // initial boot also initializes the DSH profile before the web URL is printed.
 const START_TIMEOUT_MS = 90_000
@@ -54,16 +58,19 @@ let sidecar = null
 let sdkRuntime = null
 let sdkStartPromise = null
 let sdkMcpAcquired = false
+let pluginHost = null
 let startPromise = null
 let generation = 0
 let activeModelSignature = null
 let recentOutput = []
 let state = {
   status: 'idle',
+  mode: 'local',
   url: null,
   port: null,
   model: null,
   toolCount: 0,
+  pluginCount: 0,
   error: null
 }
 
@@ -268,6 +275,108 @@ function mcpToolConfiguration() {
   }
 }
 
+function selectedModelOrNull() {
+  try {
+    return selectedModel()
+  } catch (_error) {
+    return null
+  }
+}
+
+// 本地 PluginHost 的知识检索工具：直接复用 RAG 检索，不再经过 DSH 的 MCP 桥接。
+async function retrieveKnowledgeForLocalTool(args = {}) {
+  const query = typeof args.query === 'string' ? args.query : ''
+  if (!query.trim()) return '知识库检索失败：query 不能为空'
+  const topK = Number.isFinite(args.topK) && args.topK > 0 ? args.topK : 3
+  try {
+    const { searchKnowledgeBase } = await import('../rag/index.js')
+    const results = await searchKnowledgeBase(query, '', '', topK, 0.5, '')
+    if (!results || results.length === 0) return '未在知识库中检索到相关内容。'
+    return results.map((item, index) => {
+      const source = item.source ? `\n[来源: ${item.source}]` : ''
+      const confidence = `\n[置信度: ${(Number(item.confidence || 0) * 100).toFixed(1)}%]`
+      return `【知识片段 ${index + 1}】${confidence}${source}\n${item.content}`
+    }).join('\n\n')
+  } catch (error) {
+    return `知识库检索失败: ${error.message}`
+  }
+}
+
+function ensurePluginHost() {
+  if (pluginHost) return pluginHost
+  const paths = harnessPaths()
+  ensureHarnessDirectories(paths)
+  const { approvalConfig } = mcpToolConfiguration()
+  const model = selectedModelOrNull()
+
+  pluginHost = new PluginHost({
+    registryFile: paths.bundles,
+    builtins: [
+      {
+        id: 'builtin-o-hino-tools',
+        label: 'o-hino 工具审批',
+        spec: pathToFileURL(paths.approvalPlugin).href,
+        config: approvalConfig
+      },
+      {
+        id: 'builtin-o-hino-knowledge',
+        label: 'o-hino 知识注入',
+        spec: pathToFileURL(paths.knowledgePlugin).href,
+        config: {
+          toolName: `mcp__${MCP_SERVER_NAME}__retrieve_knowledge`,
+          topK: 3,
+          maxChars: 4000,
+          maxSnippetChars: 3000,
+          preStepTimeoutMs: 1500,
+          maxEntries: 40,
+          captureUser: false,
+          memoryFile: paths.memoryFile
+        }
+      }
+    ],
+    tools: [{
+      name: `mcp__${MCP_SERVER_NAME}__retrieve_knowledge`,
+      description: '从 o-hino 本地知识库检索相关内容',
+      handler: retrieveKnowledgeForLocalTool
+    }],
+    onEvent: (channel, payload) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(channel, payload)
+      }
+    }
+  })
+  return pluginHost
+}
+
+function localHostStatus() {
+  if (!pluginHost) return { ...state }
+  const plugins = pluginHost.list()
+  return {
+    ...state,
+    toolCount: pluginHost.listTools().length,
+    pluginCount: plugins.filter(item => item.loaded).length
+  }
+}
+
+async function startLocalPluginHost() {
+  const host = ensurePluginHost()
+  updateState({ status: 'starting', mode: 'local', error: null })
+  await host.start()
+  const model = selectedModelOrNull()
+  console.log(`[PluginHost] local host ready: ${host.list().filter(item => item.loaded).length} plugins, ${host.listTools().length} tools`)
+  return updateState({
+    status: 'ready',
+    mode: 'local',
+    url: null,
+    port: null,
+    model: model
+      ? { providerLabel: model.providerLabel, modelName: model.modelName }
+      : null,
+    error: null,
+    ...localHostStatus()
+  })
+}
+
 function syncConfiguration(model, mcpUrl) {
   const paths = harnessPaths()
   ensureHarnessDirectories(paths)
@@ -443,6 +552,7 @@ function harnessLaunchUrl() {
 const DSH_COOKIE_PREFIX = 'dsh-auth-'
 
 function enableHarnessCookieForwarding(port) {
+  if (!LEGACY_DSH_ENABLED) return
   const filter = { urls: [`http://127.0.0.1:${port}/*`, `ws://127.0.0.1:${port}/*`] }
   const webRequest = session.defaultSession.webRequest
   const ownOrigin = `http://127.0.0.1:${port}`
@@ -675,6 +785,25 @@ async function bootHarness() {
 }
 
 export function startHarnessSidecar() {
+  if (!LEGACY_DSH_ENABLED) {
+    if (pluginHost && state.status === 'ready') return Promise.resolve(localHostStatus())
+    if (startPromise) return startPromise
+    startPromise = startLocalPluginHost().finally(() => {
+      startPromise = null
+    })
+    return startPromise
+  }
+
+  if (sidecar && state.status === 'ready') return Promise.resolve(publicStatus())
+  if (startPromise) return startPromise
+  startPromise = bootHarness().finally(() => {
+    startPromise = null
+  })
+  return startPromise
+}
+
+/** 显式启动完整 DSH web 通道，仅供兼容验证使用。 */
+export function startLegacyHarnessSidecar() {
   if (sidecar && state.status === 'ready') return Promise.resolve(publicStatus())
   if (startPromise) return startPromise
   startPromise = bootHarness().finally(() => {
@@ -691,10 +820,12 @@ export async function stopHarnessSidecar() {
   activeModelSignature = null
   updateState({
     status: child ? 'stopping' : 'idle',
+    mode: 'local',
     url: null,
     port: null,
     model: null,
     toolCount: 0,
+    pluginCount: 0,
     error: null
   })
   if (child && child.exitCode === null) {
@@ -711,7 +842,20 @@ export async function stopHarnessSidecar() {
     })
   }
   await releaseLocalMcpServer(HARNESS_CONSUMER)
-  return updateState({ status: 'idle', url: null, port: null, model: null, toolCount: 0, error: null })
+  if (pluginHost) {
+    await pluginHost.stop()
+    pluginHost = null
+  }
+  return updateState({
+    status: 'idle',
+    mode: 'local',
+    url: null,
+    port: null,
+    model: null,
+    toolCount: 0,
+    pluginCount: 0,
+    error: null
+  })
 }
 
 export async function restartHarnessSidecar() {
@@ -720,6 +864,7 @@ export async function restartHarnessSidecar() {
 }
 
 export async function syncHarnessConfigurationIfRunning() {
+  if (!LEGACY_DSH_ENABLED) return localHostStatus()
   if (!sidecar || state.status !== 'ready') return publicStatus()
   try {
     const model = selectedModel()
@@ -817,19 +962,69 @@ export function registerHarnessCommands(window) {
   ipcMain.handle('harness-sdk-wait', (_event, options) => sdkWait(sdkRuntime, options || {}))
   ipcMain.handle('harness-sdk-stop', () => stopSdkChannel())
 
+  // ===== 本地 PluginHost：默认插件机制，不加载 DSH 运行时 =====
+  const pluginSnapshot = async () => {
+    const host = ensurePluginHost()
+    await host.start()
+    return {
+      status: localHostStatus(),
+      plugins: host.list(),
+      tools: host.listTools(),
+      approvals: host.pendingApprovals()
+    }
+  }
+  ipcMain.handle('harness-plugins-list', () => pluginSnapshot())
+  ipcMain.handle('harness-plugins-reload', async () => {
+    const host = ensurePluginHost()
+    await host.reload()
+    return pluginSnapshot()
+  })
+  ipcMain.handle('harness-plugins-add', async (_event, input) => {
+    const host = ensurePluginHost()
+    try {
+      const result = await host.addBundle(input)
+      return { ...result, ok: true }
+    } catch (error) {
+      return { ok: false, error: error.message || String(error) }
+    }
+  })
+  ipcMain.handle('harness-plugins-remove', async (_event, id) => {
+    const host = ensurePluginHost()
+    await host.removeBundle(id)
+    return pluginSnapshot()
+  })
+  ipcMain.handle('harness-plugins-toggle', async (_event, id, enabled) => {
+    const host = ensurePluginHost()
+    try {
+      await host.toggleBundle(id, enabled)
+      return { ok: true, ...(await pluginSnapshot()) }
+    } catch (error) {
+      return { ok: false, error: error.message || String(error) }
+    }
+  })
+  ipcMain.handle('harness-plugins-invoke', async (_event, name, args) => {
+    const host = ensurePluginHost()
+    await host.start()
+    return host.invokeTool(name, args || {})
+  })
+  ipcMain.handle('harness-plugins-approve', (_event, id, approved) => {
+    const host = ensurePluginHost()
+    return { ok: host.approve(id, approved !== false) }
+  })
+
   // 第三方 bundle 管理。变更只写注册表；patch 在下次启动时由 syncConfiguration
   // 重新生成，所以运行中的 Harness 需要重启才能加载，UI 据此提示用户。
   ipcMain.handle('harness-bundles-list', () => {
     const paths = harnessPaths()
     return {
       bundles: readBundleRegistry(paths.bundles),
-      restartRequired: state.status === 'ready' || !!sdkRuntime
+      restartRequired: LEGACY_DSH_ENABLED && (state.status === 'ready' || !!sdkRuntime)
     }
   })
   const bundleResult = result => ({
     ...result,
     bundles: result.registry,
-    restartRequired: state.status === 'ready' || !!sdkRuntime
+    restartRequired: LEGACY_DSH_ENABLED && (state.status === 'ready' || !!sdkRuntime)
   })
   ipcMain.handle('harness-bundles-add', (_event, input) => {
     const file = harnessPaths().bundles

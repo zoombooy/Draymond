@@ -5,10 +5,10 @@
         <button
           type="button"
           role="tab"
-          :aria-selected="mode === 'web'"
-          :class="['mode-tab', { active: mode === 'web' }]"
-          @click="switchMode('web')"
-        >{{ t('harness.sdkWebMode') }}</button>
+          :aria-selected="mode === 'plugins'"
+          :class="['mode-tab', { active: mode === 'plugins' }]"
+          @click="switchMode('plugins')"
+        >{{ t('harness.pluginsMode') }}</button>
         <button
           type="button"
           role="tab"
@@ -17,49 +17,125 @@
           @click="switchMode('sdk')"
         >{{ t('harness.sdkMode') }}</button>
       </div>
-      <span v-if="mode === 'sdk'" class="sdk-status" :class="sdkState.status">
-        {{ sdkStatusLabel }}
+      <span class="host-status" :class="hostStatus.status">
+        {{ hostStatusLabel }}
       </span>
     </div>
 
-    <template v-if="mode === 'web'">
-    <iframe
-      v-if="status.status === 'ready' && status.url"
-      :key="frameKey"
-      :src="status.url"
-      class="harness-frame"
-      :title="t('harness.title')"
-      allow="clipboard-read; clipboard-write"
-    ></iframe>
-
-    <div v-else class="harness-state">
-      <div v-if="status.status === 'starting' || status.status === 'idle'" class="state-content">
-        <LoaderCircle class="state-spinner" :size="30" :stroke-width="1.8" />
-        <h1>{{ t('harness.starting') }}</h1>
-        <p>{{ t('harness.startingDetail') }}</p>
+    <div v-if="mode === 'plugins'" class="plugins-view">
+      <div class="summary-bar">
+        <div class="summary-item">
+          <span class="summary-label">{{ t('harness.hostMode') }}</span>
+          <strong>{{ t('harness.localMode') }}</strong>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">{{ t('harness.pluginCount') }}</span>
+          <strong>{{ t('harness.pluginCountValue', { count: loadedCount }) }}</strong>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">{{ t('harness.toolCount') }}</span>
+          <strong>{{ t('harness.toolCountValue', { count: hostStatus.toolCount || 0 }) }}</strong>
+        </div>
+        <div class="summary-item summary-model">
+          <span class="summary-label">{{ t('harness.model') }}</span>
+          <strong>{{ modelLabel }}</strong>
+        </div>
       </div>
 
-      <div v-else-if="status.status === 'config-required'" class="state-content">
-        <Settings :size="32" :stroke-width="1.5" />
-        <h1>{{ t('harness.modelRequired') }}</h1>
-        <p>{{ t('harness.modelRequiredDetail') }}</p>
-        <button class="command-button" @click="openModelSettings">
-          <Settings :size="16" :stroke-width="1.8" />
-          {{ t('harness.openSettings') }}
-        </button>
+      <div v-if="hostStatus.error" class="error-banner">{{ hostStatus.error }}</div>
+      <div v-if="notice" class="notice">{{ notice }}</div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>{{ t('harness.pluginList') }}</h2>
+          <button class="small-button" :disabled="busy" @click="reloadPlugins">
+            <RotateCcw :size="14" :stroke-width="1.8" />
+            {{ t('harness.reload') }}
+          </button>
+        </div>
+
+        <p v-if="plugins.length === 0" class="empty">{{ t('harness.noPlugins') }}</p>
+
+        <div v-for="plugin in plugins" :key="plugin.id" class="plugin-item">
+          <div class="plugin-main">
+            <div class="plugin-name">
+              <span>{{ plugin.label }}</span>
+              <span class="badge" :class="plugin.kind">
+                {{ plugin.kind === 'builtin' ? t('harness.builtin') : t('harness.userPlugin') }}
+              </span>
+              <span class="load-dot" :class="{ on: plugin.loaded }"></span>
+            </div>
+            <div class="plugin-spec">{{ plugin.spec }}</div>
+            <div class="plugin-meta">
+              {{ t('harness.hooks') }}: {{ plugin.hooks?.length ? plugin.hooks.join(', ') : '-' }}
+              <span v-if="plugin.error" class="plugin-error"> · {{ plugin.error }}</span>
+            </div>
+          </div>
+          <div class="plugin-actions">
+            <button
+              v-if="plugin.kind === 'user'"
+              class="small-button"
+              :disabled="busy"
+              @click="togglePlugin(plugin, !plugin.enabled)"
+            >{{ plugin.enabled ? t('harness.disable') : t('harness.enable') }}</button>
+            <button
+              v-if="plugin.kind === 'user'"
+              class="small-button danger"
+              :disabled="busy"
+              @click="removePlugin(plugin)"
+            >{{ t('harness.remove') }}</button>
+          </div>
+        </div>
       </div>
 
-      <div v-else class="state-content">
-        <CircleAlert :size="32" :stroke-width="1.5" />
-        <h1>{{ t('harness.startFailed') }}</h1>
-        <p class="error-message">{{ status.error || t('harness.unknownError') }}</p>
-        <button class="command-button" @click="restartHarness">
-          <RotateCcw :size="16" :stroke-width="1.8" />
-          {{ t('harness.retry') }}
-        </button>
+      <div class="panel">
+        <div class="panel-head">
+          <h2>{{ t('harness.addPlugin') }}</h2>
+        </div>
+        <div class="add-row">
+          <input v-model="newSpec" class="text-input" :placeholder="t('harness.pluginSpecPlaceholder')" />
+          <input v-model="newLabel" class="text-input narrow" :placeholder="t('harness.pluginLabelPlaceholder')" />
+          <button class="small-button primary" :disabled="busy || !newSpec.trim()" @click="addPlugin">
+            <Plus :size="14" :stroke-width="1.8" />
+            {{ t('harness.add') }}
+          </button>
+        </div>
+        <p class="hint">{{ t('harness.pluginHint') }}</p>
+      </div>
+
+      <div v-if="approvals.length > 0" class="panel">
+        <div class="panel-head">
+          <h2>{{ t('harness.approvalTitle') }}</h2>
+        </div>
+        <div v-for="item in approvals" :key="item.id" class="approval-item">
+          <div>
+            <strong>{{ item.tool || item.name }}</strong>
+            <p>{{ item.reason }}</p>
+          </div>
+          <div class="approval-actions">
+            <button class="small-button primary" @click="approve(item.id, true)">{{ t('harness.approve') }}</button>
+            <button class="small-button" @click="approve(item.id, false)">{{ t('harness.deny') }}</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>{{ t('harness.toolTest') }}</h2>
+        </div>
+        <div class="tool-row">
+          <select v-model="selectedTool" class="text-input">
+            <option v-for="tool in tools" :key="tool.name" :value="tool.name">{{ tool.name }}</option>
+          </select>
+          <button class="small-button primary" :disabled="busy || !selectedTool" @click="invokeTool">
+            <Play :size="14" :stroke-width="1.8" />
+            {{ t('harness.invoke') }}
+          </button>
+        </div>
+        <textarea v-model="toolArgs" class="args-input" rows="3" :aria-label="t('harness.toolArgs')"></textarea>
+        <pre v-if="toolResult" class="tool-result" :class="{ error: toolResult.isError }">{{ toolResult.text }}</pre>
       </div>
     </div>
-    </template>
 
     <div v-else class="sdk-view">
       <div class="sdk-hint">{{ t('harness.sdkHint') }}</div>
@@ -102,29 +178,160 @@ import { computed, nextTick, onActivated, onMounted, onUnmounted, ref } from 'vu
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import {
-  CircleAlert,
-  LoaderCircle,
-  RotateCcw,
-  Settings
+  Play,
+  Plus,
+  RotateCcw
 } from 'lucide-vue-next'
 import { electronService } from '@/services/electron'
 
 const { t } = useI18n()
 const router = useRouter()
-const frameKey = ref(0)
-const status = ref({
+
+const mode = ref('plugins')
+const hostStatus = ref({
   status: 'idle',
-  url: null,
+  mode: 'local',
   model: null,
   toolCount: 0,
+  pluginCount: 0,
   error: null
 })
+const plugins = ref([])
+const tools = ref([])
+const approvals = ref([])
+const newSpec = ref('')
+const newLabel = ref('')
+const busy = ref(false)
+const notice = ref('')
+const selectedTool = ref('')
+const toolArgs = ref('{}')
+const toolResult = ref(null)
 
 let unlistenStatus = null
-let statusSyncPromise = null
+let unlistenApproval = null
+let unlistenApprovalResolved = null
 
-// ---- P3 SDK 实验通道 ----
-const mode = ref('web')
+const loadedCount = computed(() => plugins.value.filter(item => item.loaded).length)
+const modelLabel = computed(() => {
+  const model = hostStatus.value.model
+  if (!model) return t('harness.notConfigured')
+  return `${model.providerLabel || ''} / ${model.modelName || ''}`.trim()
+})
+const hostStatusLabel = computed(() => {
+  const labels = {
+    ready: t('harness.localReady'),
+    starting: t('harness.localStarting'),
+    idle: t('harness.localIdle'),
+    error: t('harness.localError'),
+    'config-required': t('harness.localIdle')
+  }
+  return labels[hostStatus.value.status] || hostStatus.value.status
+})
+
+function switchMode(next) {
+  if (mode.value === next) return
+  mode.value = next
+  if (next === 'sdk') refreshSdkStatus()
+  else refreshPlugins()
+}
+
+async function refreshPlugins() {
+  const snapshot = await electronService.invoke('harness-plugins-list')
+  if (!snapshot) return
+  if (snapshot.status) hostStatus.value = { ...hostStatus.value, ...snapshot.status }
+  plugins.value = snapshot.plugins || []
+  tools.value = snapshot.tools || []
+  approvals.value = snapshot.approvals || []
+  if (!selectedTool.value && tools.value.length) selectedTool.value = tools.value[0].name
+}
+
+async function startHost() {
+  hostStatus.value = { ...hostStatus.value, status: 'starting', error: null }
+  const next = await electronService.invoke('harness-start')
+  if (next) hostStatus.value = { ...hostStatus.value, ...next }
+  await refreshPlugins()
+}
+
+async function reloadPlugins() {
+  busy.value = true
+  const snapshot = await electronService.invoke('harness-plugins-reload')
+  if (snapshot) {
+    if (snapshot.status) hostStatus.value = { ...hostStatus.value, ...snapshot.status }
+    plugins.value = snapshot.plugins || []
+    tools.value = snapshot.tools || []
+    approvals.value = snapshot.approvals || []
+  }
+  busy.value = false
+}
+
+async function addPlugin() {
+  const spec = newSpec.value.trim()
+  if (!spec || busy.value) return
+  busy.value = true
+  notice.value = ''
+  const result = await electronService.invoke('harness-plugins-add', {
+    spec,
+    label: newLabel.value.trim()
+  })
+  busy.value = false
+  if (!result || result.ok === false) {
+    notice.value = result?.error || t('harness.unknownError')
+    return
+  }
+  newSpec.value = ''
+  newLabel.value = ''
+  notice.value = result.added ? t('harness.pluginAdded') : t('harness.pluginUpdated')
+  await refreshPlugins()
+}
+
+async function removePlugin(plugin) {
+  if (busy.value) return
+  busy.value = true
+  await electronService.invoke('harness-plugins-remove', plugin.id)
+  busy.value = false
+  notice.value = t('harness.pluginRemoved')
+  await refreshPlugins()
+}
+
+async function togglePlugin(plugin, enabled) {
+  if (plugin.kind === 'builtin') {
+    notice.value = t('harness.builtinAlwaysOn')
+    return
+  }
+  if (busy.value) return
+  busy.value = true
+  const result = await electronService.invoke('harness-plugins-toggle', plugin.id, enabled)
+  busy.value = false
+  if (result && result.ok === false) notice.value = result.error
+  await refreshPlugins()
+}
+
+async function invokeTool() {
+  if (!selectedTool.value || busy.value) return
+  let args = {}
+  try {
+    args = JSON.parse(toolArgs.value || '{}')
+  } catch (error) {
+    toolResult.value = { isError: true, text: error.message }
+    return
+  }
+  busy.value = true
+  toolResult.value = null
+  const result = await electronService.invoke('harness-plugins-invoke', selectedTool.value, args)
+  toolResult.value = result || { isError: true, text: t('harness.unknownError') }
+  busy.value = false
+}
+
+async function approve(id, allowed) {
+  await electronService.invoke('harness-plugins-approve', id, allowed)
+  await refreshPlugins()
+}
+
+function openModelSettings() {
+  router.push('/settings/model')
+}
+
+// ---- DSH 可选通道：默认不启用，仅用于兼容性验证 ----
 const sdkState = ref({ status: 'idle', error: null, sessionId: null })
 const sdkMessages = ref([])
 const sdkInput = ref('')
@@ -150,12 +357,6 @@ function roleLabel(role) {
 async function scrollMessagesToBottom() {
   await nextTick()
   if (messagesEl.value) messagesEl.value.scrollTop = messagesEl.value.scrollHeight
-}
-
-function switchMode(next) {
-  if (mode.value === next) return
-  mode.value = next
-  if (next === 'sdk') refreshSdkStatus()
 }
 
 async function refreshSdkStatus() {
@@ -187,8 +388,7 @@ async function sendSdkMessage() {
   await scrollMessagesToBottom()
   sdkBusy.value = true
   try {
-    const result = await electronService.invoke('harness-sdk-prompt', text)
-    if (result?.error) sdkMessages.value.push({ role: 'system', text: String(result.error) })
+    await electronService.invoke('harness-sdk-prompt', text)
     await electronService.invoke('harness-sdk-wait')
   } catch (error) {
     sdkMessages.value.push({ role: 'system', text: error?.message || String(error) })
@@ -206,57 +406,25 @@ function handleSdkEvent(event) {
   scrollMessagesToBottom()
 }
 
-async function startHarness() {
-  status.value = { ...status.value, status: 'starting', error: null }
-  const next = await electronService.invoke('harness-start')
-  if (next) status.value = next
-}
-
-function syncHarnessStatus() {
-  if (statusSyncPromise) return statusSyncPromise
-
-  statusSyncPromise = (async () => {
-    const current = await electronService.invoke('harness-status')
-    if (current) status.value = current
-
-    // The sidecar survives route changes. Start it only when it is not running,
-    // so returning to this view does not temporarily remove the ready iframe.
-    if (!current || current.status === 'idle') await startHarness()
-  })().finally(() => {
-    statusSyncPromise = null
-  })
-
-  return statusSyncPromise
-}
-
-async function restartHarness() {
-  status.value = { ...status.value, status: 'starting', error: null }
-  const next = await electronService.invoke('harness-restart')
-  if (next) {
-    status.value = next
-    frameKey.value += 1
-  }
-}
-
-function openModelSettings() {
-  router.push('/settings/model')
-}
-
 onMounted(() => {
   unlistenStatus = electronService.listen('harness-status-changed', event => {
-    status.value = event.payload
+    hostStatus.value = { ...hostStatus.value, ...event.payload }
   })
+  unlistenApproval = electronService.listen('harness-plugin-approval', () => refreshPlugins())
+  unlistenApprovalResolved = electronService.listen('harness-plugin-approval-resolved', () => refreshPlugins())
   unlistenSdkEvent = electronService.listen('harness-sdk-event', handleSdkEvent)
-  syncHarnessStatus()
+  startHost()
   refreshSdkStatus()
 })
 
 onActivated(() => {
-  syncHarnessStatus()
+  refreshPlugins()
 })
 
 onUnmounted(() => {
   if (unlistenStatus) unlistenStatus()
+  if (unlistenApproval) unlistenApproval()
+  if (unlistenApprovalResolved) unlistenApprovalResolved()
   if (unlistenSdkEvent) unlistenSdkEvent()
 })
 </script>
@@ -305,26 +473,282 @@ onUnmounted(() => {
   color: var(--text-primary);
 }
 
-.sdk-status {
+.host-status {
   font-size: 12px;
   color: var(--text-tertiary);
 }
 
-.sdk-status.ready {
+.host-status.ready {
   color: var(--success-color, #16a34a);
 }
 
-.sdk-status.error {
+.host-status.error {
   color: var(--error-color, #dc2626);
 }
 
-.harness-frame {
-  display: block;
-  width: 100%;
+.plugins-view {
   flex: 1;
   min-height: 0;
-  border: 0;
-  background: #fff;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.summary-bar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.summary-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.summary-item strong {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.summary-model {
+  margin-left: auto;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel {
+  flex: 0 0 auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  padding: 12px 14px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.panel-head h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.plugin-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.plugin-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.plugin-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.plugin-spec {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  overflow-wrap: anywhere;
+}
+
+.plugin-meta {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.plugin-error {
+  color: var(--error-color, #dc2626);
+}
+
+.badge {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.badge.builtin {
+  background: var(--accent-bg, var(--bg-hover));
+  color: var(--text-primary);
+}
+
+.load-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+}
+
+.load-dot.on {
+  background: var(--success-color, #16a34a);
+}
+
+.plugin-actions,
+.approval-actions {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.small-button {
+  min-height: 28px;
+  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.small-button:hover {
+  background: var(--bg-hover);
+}
+
+.small-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.small-button.primary {
+  border-color: var(--accent-color, var(--border-color));
+}
+
+.small-button.danger {
+  color: var(--error-color, #dc2626);
+}
+
+.add-row,
+.tool-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.text-input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.text-input.narrow {
+  max-width: 180px;
+}
+
+.args-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+  resize: vertical;
+}
+
+.tool-result {
+  margin: 8px 0 0;
+  padding: 10px;
+  max-height: 160px;
+  overflow: auto;
+  border-radius: 5px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.tool-result.error {
+  color: var(--error-color, #dc2626);
+}
+
+.approval-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.approval-item p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.empty,
+.hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.error-banner,
+.notice {
+  flex: 0 0 auto;
+  padding: 9px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+.error-banner {
+  background: var(--danger-bg, var(--bg-secondary));
+  color: var(--error-color, #dc2626);
+}
+
+.notice {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
 }
 
 .sdk-view {
@@ -434,50 +858,6 @@ onUnmounted(() => {
   margin-top: 0;
 }
 
-.harness-state {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 28px;
-}
-
-.state-content {
-  width: min(460px, 100%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  color: var(--text-secondary);
-}
-
-.state-content h1 {
-  margin: 16px 0 8px;
-  color: var(--text-primary);
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: 0;
-}
-
-.state-content p {
-  margin: 0;
-  max-width: 420px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1.65;
-}
-
-.state-spinner {
-  animation: harness-spin 0.9s linear infinite;
-}
-
-.error-message {
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-  text-align: left;
-}
-
 .command-button {
   min-height: 34px;
   margin-top: 18px;
@@ -498,8 +878,9 @@ onUnmounted(() => {
   background: var(--bg-hover);
 }
 
-@keyframes harness-spin {
-  to { transform: rotate(360deg); }
+.error-message {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  text-align: left;
 }
-
 </style>

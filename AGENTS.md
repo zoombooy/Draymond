@@ -64,15 +64,17 @@ npm run electron:build:mac
 - Agent 文件系统权限白名单见 `agent/permissions.js`：仅 `/SKILL/**`、`/memories/**`、`/SANDBOX{,/**}` 可写；LLM 生成的文件只允许落在 SANDBOX
 - 跨会话记忆是文件系统实现（/memories/*.md），Agent 通过 edit_file 写入即持久化，无数据库同步
 
-### Harness 子系统（src-electron/harness/ + plugins/）
+### 插件子系统（src-electron/harness/ + plugins/）
 
-- 依赖版本：`@deepseek-ai/dsh 0.2.3-alpha.2`（Node >= 24.22.3）。升级前先读官方 upgrade guide，并运行 `npm run harness:migrate -- <dataDir>` 清理 0.1.x patch。
+- 默认宿主是 `src-electron/harness/pluginHost.js`：o-hino 主进程内实现 DSH 插件契约的最小子集，不加载 DSH 运行时、不使用 iframe。完整 DSH web 通道仅在 `O_HINO_LEGACY_DSH_WEB=1` 时启用；SDK JSON-RPC 通道需手动开启。
+- 插件必须导出 `name` / `inject` / `apply(ctx, config)`。宿主提供 `ctx.on` / `ctx.emit` / `ctx.emitWaterfall` / `ctx.tools` / `ctx.agents`；不要把 Electron / db / zod 依赖带进插件。
 - 工具清单只有一处真相：`toolBridge.js` 的 `buildHarnessToolManifest()` 从工具注册表生成 `mcp__o-hino__*` 名称与审批工具列表；不要在其他文件里另行拼接。
-- 审批策略插件位于 `plugins/o-hino-tools/`，由 `harness/index.js` 以绝对路径注入 patch；不要再向 DSH home 复制策略文件。
-- 新增 Harness patch 条目时注意 0.2.x 的组合顺序：bundles → profile patch → home patch → `--patch` overlay。
-- 知识库注入插件位于 `plugins/o-hino-knowledge/`；纯逻辑在 `src-electron/harness/knowledgeBridge.js`，不要把 Electron / db / zod 依赖带进插件。
+- 审批策略插件位于 `plugins/o-hino-tools/`，由本地宿主直接加载；不要再向 DSH home 复制策略文件，也不要把它写进默认 patch。
+- 知识库注入插件位于 `plugins/o-hino-knowledge/`；纯逻辑在 `src-electron/harness/knowledgeBridge.js`，本地知识工具在 `harness/index.js` 中直接调用 RAG 检索。
 - `agent.inject()` 只排队、不唤醒 driver：同轮生效要靠 `agent/pre-step` waterfall 合并消息，且必须调用 `next()`；两者用 `claimed` 标记互斥，避免重复注入。
+- 第三方插件通过 `harness-plugins-*` IPC 管理，注册表与旧 `bundles.json` 共用；启停立即在当前宿主生效，无需重启。
 - Harness 会话摘录落盘到 `/memories/HARNESS.md`，只改两个标记之间的段落；新增记忆文件时必须同步五处：默认内容、i18n 两份、`getMemoryPaths()`、记忆管理界面白名单。
+- 完整 DSH 通道的历史约束：`@deepseek-ai/dsh 0.2.3-alpha.2` 需 Node >= 24.22.3 与 Electron 43；升级前运行 `npm run harness:migrate -- <dataDir>` 清理 0.1.x patch。默认路径不受这些约束影响。
 
 ### RAG 子系统（src-electron/rag/）
 
