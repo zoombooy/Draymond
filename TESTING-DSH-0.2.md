@@ -207,28 +207,31 @@ dsh web: http://127.0.0.1:15996/?token=...
 
 > 补充：`mcp-o-hino` 在独立探测时未激活是因为没有主进程的 MCP 服务（17891）。在真实应用里，点启动 Harness 时主进程会先拉起 MCP 服务，这一项应能正常激活——这也可以在 UI 启动后一并确认。
 
-## 本轮实测记录（2026-11-28）：iframe 401 / forbidden 修复
+## 本轮实测记录（2026-11-28）：iframe `forbidden` 修复
 
 ### 现象
-点击左侧拼图图标进入 Harness 页，提示"正在启动 DeepSeek Harness"，加载约 25 秒后 iframe 显示 401 页面（标题 "Connect to this Host"，正文 i18n 含 "forbidden" 文案，用户据此称"forbidden"）。
+点击左侧拼图图标进入 Harness 页，提示"正在启动 DeepSeek Harness"，加载约 25 秒后显示纯文本 **`forbidden`**（DevTools 里 `<body>` 只有这个词，没有 dsh 的 HTML 界面）。
 
-### 根因（两个叠加）
-1. **cookie 注入大小写错误**：`enableHarnessCookieForwarding()` 的 `onBeforeSendHeaders` 用大写 `details.requestHeaders.Cookie = cookie`。Chromium 的请求头 key 是小写，大写写法会在已存在的空 cookie 头旁再加一个头，dsh 仍收不到凭证 → 401。
-2. **探针抢先消费 token URL**：`probe()` 直接用 Node `http.get(tokenUrl)`，DSH 返回 303 + `Set-Cookie`；Node 网络栈的这次 303 走不到 Electron 的 `onHeadersReceived`，且 curl/Electron 跟随 303 时默认不回传 Set-Cookie，探针看不到真正的就绪状态。
+### 根因（三层，逐层实测确认）
+
+1. **DSH 0.2 新增来源校验（真正主因）**：`dsh-client-connection/lib/index.js` 的 `isTrustedApiRequest()` 在 `sec-fetch-site === 'cross-site'` 或 `Origin` 不等于监听器自身 authority 时拒绝请求；`dsh-host-webserver/lib/index.js:505` 对拒绝的请求直接返回**纯文本** `forbidden`（403）。iframe 从 `http://localhost:5173` 访问 `http://127.0.0.1:<port>`，两条都命中，必然 403。这一步与 cookie 无关，是 0.1.5 → 0.2 新增的防线。
+2. **cookie 注入大小写错误**：`onBeforeSendHeaders` 用大写 `details.requestHeaders.Cookie = cookie`。Chromium 请求头 key 是小写，大写写法产生重复头，dsh 收不到凭证。
+3. **探针访问 token URL**：`probe()` 用 Node `http.get(tokenUrl)`，其 303 走不到 Electron 的 `onHeadersReceived`；改为只探活 origin。
 
 ### 修复（`src-electron/harness/index.js`）
-- `onBeforeSendHeaders`：先删除所有大小写变体的 cookie 头，只写小写 `details.requestHeaders.cookie = cookie`；`onHeadersReceived` 改成大小写不敏感地找 `set-cookie`；加两行一次性诊断日志（捕获/转发 cookie）。
-- `probe()`：改为只探测 token URL 的 **origin**（`new URL(url).origin`），裸 origin 的 401 即判定"服务在线"，把完整 token URL 留给 iframe 消费。
+- `onBeforeSendHeaders`：删除所有大小写变体的 cookie 头，只写小写 `cookie`；**把 `sec-fetch-site` 改写为 `same-origin`、`origin`/`referer` 改写为 dsh 自身 authority**，让 iframe 请求通过 `isTrustedApiRequest()`；`onHeadersReceived` 大小写不敏感地找 `set-cookie`；加一次性诊断日志。
+- `probe()`：只探测 token URL 的 origin（401 即判定在线），完整 token URL 留给 iframe 消费。
+- `updateState()`：状态变 `error` 时把 `recentOutput` 打到主进程日志（此前 UI 只显示 `forbidden` 一行，无法定位）。
 
-### 实测验证（curl 精确模拟）
+### 实测验证（curl 精确模拟 DSH 0.2 的校验）
 | 步骤 | 结果 |
 |---|---|
-| 裸 origin（无 token） | HTTP 401（探针按新逻辑判定在线）|
-| token URL + 303 但不带 cookie（旧逻辑等价）| 仍是 401，页面 "Connect to this Host" |
-| 带捕获的小写 `cookie` 头访问裸 origin | **HTTP 200** |
-| token URL + cookie jar 完整跟随（新逻辑等价）| **HTTP 200**，页面 title "DeepSeek Harness" |
+| token URL + 303 不带 cookie | 401 / "Connect to this Host" |
+| **cross-site + 外部 Origin（旧逻辑）** | 触发来源防线，返回纯文本 `forbidden` |
+| **改写 same-origin + 自身 Origin + token（新逻辑）** | **HTTP 200**，页面 title `DeepSeek Harness` ✅ |
+| 带捕获 cookie + 改写头访问 | 鉴权通过 |
 
-注：沙箱内无法起 Electron GUI 网络栈做端到端（窗口被拦），`session/net` 在 node 模式下不可用，故用 curl + cookie jar 精确复现 303 / Set-Cookie / 小写 cookie 的完整链路。最终以你在 UI 里点击后的实际状态为准。
+注：沙箱内无法起 Electron GUI 网络栈做端到端（窗口被拦，node 模式下 `session/net` 不可用），用 curl 精确复现 303 / Set-Cookie / 来源头 / cookie 的完整链路。最终以 UI 实测为准。
 
 ### 仍需你在 UI 里确认
-重新进入 Harness 页（服务已在 09:36 重启加载了修复），确认：状态变 `ready`、`toolCount > 0`、iframe 显示 dsh 主界面而非 "Connect to this Host"。加载约 25 秒属正常（DSH profile 首次初始化）。若仍 401，请查看 `o-hino-startup.log` 是否出现新增的两行 `[Harness] Captured/Forwarding dsh auth cookie` 诊断日志，据此判断 cookie 是否被捕获。
+服务已在 09:43 重启加载全部修复。请再次进入 Harness 页（必要时点"重试"），确认 iframe 显示 dsh 主界面而非 `forbidden`。加载约 25 秒属正常。若仍失败，看 `o-hino-startup.log` 里三行新诊断日志：`Captured dsh auth cookie` / `Forwarding dsh auth cookie` / `Rewriting iframe origin headers`，以及新增的 `status=error` + `recentOutput`（会给出 dsh 的真实报错）。

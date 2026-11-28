@@ -73,6 +73,12 @@ function publicStatus() {
 
 function updateState(patch) {
   state = { ...state, ...patch }
+  // Surface failures in the main-process log as well as the UI. The UI only
+  // shows `error`, which can be a single terse line ("forbidden") from dsh;
+  // the captured output tail is what actually explains the root cause.
+  if (patch.status === 'error' && patch.error) {
+    console.error(`[Harness] status=error: ${patch.error}\n[Harness] recentOutput:\n${recentOutput.map(line => `  ${line}`).join('\n')}`)
+  }
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('harness-status-changed', publicStatus())
   }
@@ -427,14 +433,23 @@ function harnessLaunchUrl() {
 // every navigation after the token exchange answers 401. Forward the cookie at
 // the network layer instead: capture the Set-Cookie the harness issues and
 // replay it as an explicit Cookie header on every request to the harness origin.
+//
+// DSH 0.2 adds a second fence in `isTrustedApiRequest` (dsh-client-connection):
+// a request is rejected with a bare `403 forbidden` when `sec-fetch-site` is
+// `cross-site` or the `Origin` is not this listener's own authority. Both hold
+// for an iframe hosted at localhost:5173 talking to 127.0.0.1:<port>. Rewrite
+// those browser-supplied headers at the network layer so the iframe is seen as
+// same-origin; the cookie forward below then completes the authentication.
 const DSH_COOKIE_PREFIX = 'dsh-auth-'
 
 function enableHarnessCookieForwarding(port) {
   const filter = { urls: [`http://127.0.0.1:${port}/*`, `ws://127.0.0.1:${port}/*`] }
   const webRequest = session.defaultSession.webRequest
+  const ownOrigin = `http://127.0.0.1:${port}`
   let cookie = null
   let loggedCapture = false
   let loggedForward = false
+  let loggedOrigin = false
   webRequest.onHeadersReceived(filter, (details, callback) => {
     for (const key of Object.keys(details.responseHeaders ?? {})) {
       if (key.toLowerCase() !== 'set-cookie') continue
@@ -451,21 +466,36 @@ function enableHarnessCookieForwarding(port) {
     callback({})
   })
   webRequest.onBeforeSendHeaders(filter, (details, callback) => {
+    const headers = details.requestHeaders
+    // Chromium lowercases request header names. Setting `Cookie` (capitalized)
+    // adds a second header beside the empty one Chromium already prepared, so
+    // dsh still sees no usable credential and answers 401 ("Connect to this
+    // Host"). Strip every casing variant and write the lowercase form only.
     if (cookie) {
-      // Chromium lowercases request header names. Setting `Cookie` (capitalized)
-      // adds a second header beside the empty one Chromium already prepared, so
-      // dsh still sees no usable credential and answers 401 ("Connect to this
-      // Host"). Strip every casing variant and write the lowercase form only.
-      for (const key of Object.keys(details.requestHeaders)) {
-        if (key.toLowerCase() === 'cookie') delete details.requestHeaders[key]
+      for (const key of Object.keys(headers)) {
+        if (key.toLowerCase() === 'cookie') delete headers[key]
       }
-      details.requestHeaders.cookie = cookie
+      headers.cookie = cookie
       if (!loggedForward) {
         loggedForward = true
         console.log('[Harness] Forwarding dsh auth cookie to iframe requests')
       }
     }
-    callback({ requestHeaders: details.requestHeaders })
+    // DSH 0.2 source fence: drop the cross-site marker and present the
+    // listener's own Origin so isTrustedApiRequest() admits the request.
+    for (const key of Object.keys(headers)) {
+      const lower = key.toLowerCase()
+      if (lower === 'sec-fetch-site') headers[key] = 'same-origin'
+      if (lower === 'origin') headers[key] = ownOrigin
+      if (lower === 'referer') headers[key] = `${ownOrigin}/`
+    }
+    if (!headers['sec-fetch-site']) headers['sec-fetch-site'] = 'same-origin'
+    if (!headers.origin) headers.origin = ownOrigin
+    if (!loggedOrigin) {
+      loggedOrigin = true
+      console.log('[Harness] Rewriting iframe origin headers to dsh same-origin')
+    }
+    callback({ requestHeaders: headers })
   })
 }
 
