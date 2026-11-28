@@ -95,6 +95,7 @@ async function initDatabase() {
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL DEFAULT '新对话',
       mode TEXT NOT NULL DEFAULT 'chat',
+      folderPath TEXT NOT NULL DEFAULT '',
       createdAt TEXT NOT NULL,
       updatedAt TEXT NOT NULL
     );
@@ -103,6 +104,13 @@ async function initDatabase() {
   // 迁移：为旧版 sessions 表补充 mode 列
   try {
     db.run('ALTER TABLE sessions ADD COLUMN mode TEXT NOT NULL DEFAULT \'chat\'')
+  } catch (_e) {
+    // 列已存在，忽略
+  }
+
+  // 迁移：为旧版 sessions 表补充 folderPath 列（工作区目录）
+  try {
+    db.run('ALTER TABLE sessions ADD COLUMN folderPath TEXT NOT NULL DEFAULT \'\'')
   } catch (_e) {
     // 列已存在，忽略
   }
@@ -496,15 +504,16 @@ function normalizeAutomationTask(row) {
   return row
 }
 
-export function createSession(title, mode = 'chat') {
+export function createSession(title, mode = 'chat', folderPath = '') {
   const now = nowISO()
   const id = generateId()
+  const normalizedFolder = typeof folderPath === 'string' ? folderPath.trim() : ''
   db.run(
-    'INSERT INTO sessions (id, title, mode, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?)',
-    [id, title || '新对话', mode, now, now]
+    'INSERT INTO sessions (id, title, mode, folderPath, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)',
+    [id, title || '新对话', mode, normalizedFolder, now, now]
   )
   saveDb()
-  return { id, title: title || '新对话', mode, createdAt: now, updatedAt: now }
+  return { id, title: title || '新对话', mode, folderPath: normalizedFolder, createdAt: now, updatedAt: now }
 }
 
 export function getSessions() {
@@ -573,6 +582,18 @@ export function updateSessionTitle(sessionId, title) {
   db.run(
     'UPDATE sessions SET title = ?, updatedAt = ? WHERE id = ?',
     [title, nowISO(), sessionId]
+  )
+  saveDb()
+  return db.getRowsModified() > 0
+}
+
+// 记录会话使用过的工作区目录；空路径不覆盖已有值，方便历史会话恢复项目
+export function updateSessionFolderPath(sessionId, folderPath) {
+  const normalizedFolder = typeof folderPath === 'string' ? folderPath.trim() : ''
+  if (!sessionId || !normalizedFolder) return false
+  db.run(
+    'UPDATE sessions SET folderPath = ?, updatedAt = ? WHERE id = ?',
+    [normalizedFolder, nowISO(), sessionId]
   )
   saveDb()
   return db.getRowsModified() > 0

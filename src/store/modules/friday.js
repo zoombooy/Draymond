@@ -50,7 +50,10 @@ export const useFridayStore = defineStore('friday', {
     mode: readStorage(MODE_KEY, 'agent'),
     thinkMode: readStorage(THINK_KEY, 'fast'),
     modelId: readStorage(SELECTED_MODEL_KEY, ''),
-    workspaceId: readStorage(SELECTED_WORKSPACE_KEY, 'default'),
+    workspaceId: (() => {
+      const saved = readStorage(SELECTED_WORKSPACE_KEY, 'none')
+      return saved === 'default' ? 'none' : saved
+    })(),
     pendingLaunches: {},
     streamingByTab: {},
     historySessions: loadCachedHistorySessions(),

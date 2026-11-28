@@ -369,7 +369,7 @@ export function registerCommands(mainWindow) {
 
     try {
       if (!currentSessionId) {
-        const session = db.createSession(message.slice(0, 20) || '新对话')
+        const session = db.createSession(message.slice(0, 20) || '新对话', 'chat', folderPath)
         currentSessionId = session.id
         isNewSession = true
       } else {
@@ -377,6 +377,7 @@ export function registerCommands(mainWindow) {
         if (!existing) {
           throw new Error('Session not found')
         }
+        db.updateSessionFolderPath(currentSessionId, folderPath)
       }
 
       // 保存用户消息到数据库（简洁引用格式）

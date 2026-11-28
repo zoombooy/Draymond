@@ -54,30 +54,73 @@
     </ChatInputBox>
 
     <Teleport to="body">
-      <!-- 工作区下拉 -->
+      <!-- 工作区下拉：搜索 / 不使用项目 / 已有项目 / 新建 / 从历史对话添加 -->
       <div v-if="showWorkspaceDropdown" class="dropdown-overlay" :style="workspaceDropdownStyle" @click.stop>
         <div class="dropdown-panel workspace-dropdown">
-          <div class="panel-title">{{ t('friday.workspace') }}</div>
-          <div
-            v-for="ws in workspaces"
-            :key="ws.id"
-            class="dropdown-item workspace-item"
-            :class="{ active: selectedWorkspaceId === ws.id }"
-            @click="selectWorkspace(ws.id)"
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+          <div class="panel-search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.65" y2="16.65"></line>
             </svg>
-            <span class="workspace-item-name">{{ ws.name }}</span>
-            <span v-if="ws.path" class="workspace-item-path" :title="ws.path">{{ ws.path }}</span>
-            <svg v-if="selectedWorkspaceId === ws.id" class="item-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            <button v-if="!ws.builtin" class="workspace-del" type="button" :title="t('friday.remove')" @click.stop="removeWorkspaceItem(ws.id)">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-            </button>
+            <input v-model="workspaceSearch" type="text" :placeholder="t('friday.searchWorkspace')" />
           </div>
-          <div class="workspace-create" @click="startCreateWorkspace">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            <span>{{ t('friday.newWorkspace') }}</span>
+          <div class="workspace-scroll">
+            <div
+              class="dropdown-item workspace-item"
+              :class="{ active: selectedWorkspaceId === 'none' }"
+              @click="selectWorkspace('none')"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="15" x2="15" y2="9"></line><polyline points="15 14 15 9 10 9"></polyline>
+              </svg>
+              <span class="workspace-item-name">{{ t('friday.noWorkspace') }}</span>
+              <svg v-if="selectedWorkspaceId === 'none'" class="item-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <template v-if="filteredWorkspaces.length">
+              <div
+                v-for="ws in filteredWorkspaces"
+                :key="ws.id"
+                class="dropdown-item workspace-item"
+                :class="{ active: selectedWorkspaceId === ws.id }"
+                @click="selectWorkspace(ws.id)"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span class="workspace-item-name">{{ ws.name }}</span>
+                <span v-if="ws.path" class="workspace-item-path" :title="ws.path">{{ baseName(ws.path) }}</span>
+                <svg v-if="selectedWorkspaceId === ws.id" class="item-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                <button class="workspace-del" type="button" :title="t('friday.remove')" @click.stop="removeWorkspaceItem(ws.id)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+              </div>
+            </template>
+            <div v-else class="workspace-empty">{{ t('friday.noExistingWorkspace') }}</div>
+          </div>
+          <div class="workspace-footer">
+            <div class="workspace-footer-item" @click="startCreateWorkspace">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+              <span>{{ t('friday.newWorkspace') }}</span>
+            </div>
+            <div class="workspace-footer-item" @click="toggleHistorySubmenu">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><polyline points="3 3 3 8 8 8"></polyline><polyline points="12 7 12 12 15 14"></polyline></svg>
+              <span>{{ t('friday.fromHistory') }}</span>
+              <svg class="footer-chev" :class="{ open: showHistorySub }" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"></polyline></svg>
+            </div>
+            <div v-if="showHistorySub" class="history-submenu">
+              <template v-if="historyWorkspaces.length">
+                <div
+                  v-for="session in historyWorkspaces"
+                  :key="session.id"
+                  class="dropdown-item history-sub-item"
+                  @click="addWorkspaceFromSession(session)"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                  <span class="workspace-item-name">{{ session.title || t('friday.untitledSession') }}</span>
+                  <span class="workspace-item-path" :title="session.folderPath">{{ baseName(session.folderPath) }}</span>
+                </div>
+              </template>
+              <div v-else class="workspace-empty">{{ t('friday.noHistoryWorkspace') }}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -254,6 +297,7 @@ import { useFridayStore } from '@/store';
 import { useKnowledgeBaseList } from '@/views/friday/composables/useKnowledgeBaseList';
 import { useModelCatalog } from '@/views/friday/composables/useModelCatalog';
 import { useWorkspaces } from '@/views/friday/composables/useWorkspaces';
+import { refreshHistorySessions } from '@/views/friday/composables/useConversationHistory';
 import { CHAT_MODES, providerIcons } from '@/views/friday/constants';
 import { electronService } from '@/services/electron';
 
@@ -305,6 +349,8 @@ const modelDropdownStyle = ref({});
 const workspaceDropdownStyle = ref({});
 const plusDropdownStyle = ref({});
 const modelSearch = ref('');
+const workspaceSearch = ref('');
+const showHistorySub = ref(false);
 const activeSub = ref(null);
 
 const toolList = ref([]);
@@ -329,7 +375,32 @@ const currentModelIcon = computed(() => {
   return providerIcons[currentModel.value.provider] || providerIcons.other;
 });
 
-const workspaceLabel = computed(() => selectedWorkspace.value?.name || t('friday.defaultWorkspace'));
+const workspaceLabel = computed(() => {
+  const ws = selectedWorkspace.value;
+  return ws && ws.id !== 'none' ? ws.name : t('friday.selectWorkspace');
+});
+
+const filteredWorkspaces = computed(() => {
+  const keyword = workspaceSearch.value.trim().toLowerCase();
+  const candidates = workspaces.value.filter(ws => ws.id !== 'none');
+  if (!keyword) return candidates;
+  return candidates.filter(ws => (
+    String(ws.name || '').toLowerCase().includes(keyword) ||
+    String(ws.path || '').toLowerCase().includes(keyword)
+  ));
+});
+
+// 只列出带工作目录的历史会话，供“从历史对话添加”恢复为项目
+const historyWorkspaces = computed(() => (
+  (fridayStore.historySessions || []).filter(session => (
+    session && typeof session.folderPath === 'string' && session.folderPath.trim()
+  ))
+));
+
+function baseName(path) {
+  const parts = String(path || '').replace(/[\\/]+$/, '').split(/[\\/]/).filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : '';
+}
 
 const groupedModels = computed(() => {
   const keyword = modelSearch.value.trim().toLowerCase();
@@ -353,6 +424,8 @@ function closeAllDropdowns() {
   showModelDropdown.value = false;
   showWorkspaceDropdown.value = false;
   showPlusDropdown.value = false;
+  showHistorySub.value = false;
+  workspaceSearch.value = '';
   activeSub.value = null;
 }
 
@@ -407,6 +480,29 @@ function selectWorkspace(id) {
     fridayStore.setWorkspaceId(id);
     showWorkspaceDropdown.value = false;
   }
+}
+
+async function toggleHistorySubmenu() {
+  showHistorySub.value = !showHistorySub.value;
+  if (showHistorySub.value) {
+    await refreshHistorySessions();
+  }
+}
+
+function addWorkspaceFromSession(session) {
+  const folderPath = String(session?.folderPath || '').trim();
+  if (!folderPath) return;
+  const dirName = baseName(folderPath);
+  let name = String(session.title || dirName || t('friday.untitledSession')).slice(0, 30);
+  let created = addWorkspace({ name, path: folderPath });
+  if (!created && dirName) {
+    created = addWorkspace({ name: `${dirName}-${Date.now().toString(36).slice(-4)}`, path: folderPath });
+  }
+  if (created) {
+    fridayStore.setWorkspaceId(created.id);
+    selectWorkspaceById(created.id);
+  }
+  showWorkspaceDropdown.value = false;
 }
 
 function removeWorkspaceItem(id) {
@@ -577,8 +673,8 @@ function handleSend() {
     mode: fridayStore.mode,
     modelId: fridayStore.modelId,
     thinkMode: fridayStore.thinkMode,
-    workspaceId: workspace?.id || 'default',
-    workspaceName: workspace?.name || t('friday.defaultWorkspace'),
+    workspaceId: workspace?.id || 'none',
+    workspaceName: workspace?.id === 'none' ? t('friday.noWorkspace') : (workspace?.name || t('friday.noWorkspace')),
     folderPath: workspace?.path || ''
   });
   attachments.value = [];
@@ -753,16 +849,35 @@ onDeactivated(closeAllDropdowns);
 
 /* ---------- 工作区下拉 ---------- */
 .workspace-dropdown {
-  min-width: 260px;
-  max-width: 340px;
+  min-width: 280px;
+  max-width: 360px;
   padding: 8px;
 }
 
-.panel-title {
-  padding: 4px 10px 8px;
-  font-size: 11.5px;
+.panel-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 4px 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
   color: var(--text-tertiary);
-  font-weight: 600;
+}
+
+.panel-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.workspace-scroll {
+  max-height: 260px;
+  overflow-y: auto;
 }
 
 .workspace-item {
@@ -787,6 +902,13 @@ onDeactivated(closeAllDropdowns);
   white-space: nowrap;
 }
 
+.workspace-empty {
+  padding: 22px 10px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+}
+
 .item-check {
   flex-shrink: 0;
 }
@@ -806,21 +928,47 @@ onDeactivated(closeAllDropdowns);
   color: #ef4444;
 }
 
-.workspace-create {
+.workspace-footer {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-color);
+}
+
+.workspace-footer-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 6px;
-  padding: 10px 14px;
-  border-top: 1px solid var(--border-color);
+  padding: 9px 10px;
+  border-radius: 6px;
   color: var(--text-secondary);
   font-size: 13px;
   cursor: pointer;
-  border-radius: 0 0 10px 10px;
 }
 
-.workspace-create:hover {
-  background: var(--bg-secondary);
+.workspace-footer-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.footer-chev {
+  margin-left: auto;
+  transition: transform 0.15s ease;
+}
+
+.footer-chev.open {
+  transform: rotate(90deg);
+}
+
+.history-submenu {
+  margin: 2px 6px 4px 22px;
+  padding: 4px;
+  border-left: 1px solid var(--border-color);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.history-sub-item {
+  font-size: 12.5px;
 }
 
 /* ---------- 模式下拉 ---------- */

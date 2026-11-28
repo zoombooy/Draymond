@@ -1,9 +1,10 @@
 import { computed, ref } from 'vue';
 import { SELECTED_WORKSPACE_KEY, WORKSPACE_STORAGE_KEY } from '../constants';
 
+// 无项目状态：选中后 folderPath 为空，Agent 使用默认沙箱目录
 const DEFAULT_WORKSPACE = {
-  id: 'default',
-  name: '默认工作区',
+  id: 'none',
+  name: '不使用项目',
   path: '',
   builtin: true
 };
@@ -35,10 +36,16 @@ function writeWorkspaces(list) {
   }
 }
 
-export function useWorkspaces() {
-  const workspaces = ref([DEFAULT_WORKSPACE, ...readWorkspaces().filter(item => item.id !== DEFAULT_WORKSPACE.id)]);
+function listWithDefault() {
+  // 兼容旧版存储的 default 工作区，统一收敛为“不使用项目”
+  return [DEFAULT_WORKSPACE, ...readWorkspaces().filter(item => item.id !== DEFAULT_WORKSPACE.id && item.id !== 'default')];
+}
 
-  const selectedId = ref(localStorage.getItem(SELECTED_WORKSPACE_KEY) || DEFAULT_WORKSPACE.id);
+export function useWorkspaces() {
+  const workspaces = ref(listWithDefault());
+
+  const storedId = localStorage.getItem(SELECTED_WORKSPACE_KEY);
+  const selectedId = ref(!storedId || storedId === 'default' ? DEFAULT_WORKSPACE.id : storedId);
   const selectedWorkspace = computed(() => (
     workspaces.value.find(item => item.id === selectedId.value) || workspaces.value[0] || DEFAULT_WORKSPACE
   ));
@@ -91,7 +98,7 @@ export function useWorkspaces() {
   }
 
   function reload() {
-    workspaces.value = [DEFAULT_WORKSPACE, ...readWorkspaces().filter(item => item.id !== DEFAULT_WORKSPACE.id)];
+    workspaces.value = listWithDefault();
     if (!workspaces.value.some(item => item.id === selectedId.value)) {
       selectWorkspace(DEFAULT_WORKSPACE.id);
     }
