@@ -1,8 +1,8 @@
 export const electronService = {
-  async invoke(command, args) {
+  async invoke(command, ...args) {
     if (window.electronAPI) {
       try {
-        return await window.electronAPI.invoke(command, args)
+        return await window.electronAPI.invoke(command, ...args)
       } catch (e) {
         console.error(`IPC invoke '${command}' failed:`, e)
         return null
