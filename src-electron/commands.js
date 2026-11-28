@@ -29,6 +29,7 @@ import { listProviderModels } from './modelCatalog.js'
 import { testChatModel, testEmbeddingModel } from './modelTest.js'
 import { registerAgentCommands } from './agent/ipc.js'
 import { listToolLogs, getToolHealth } from './agent/memory.js'
+import { diagnose as flywheelDiagnose, runOptimization, promoteRun, rollbackRun } from './flywheel.js'
 import {
   registerHarnessCommands,
   syncHarnessConfigurationIfRunning
@@ -651,6 +652,39 @@ export function registerCommands(mainWindow) {
 
   ipcMain.handle('delete_feedback', (_event, args) => {
     return db.deleteFeedback(args.id)
+  })
+
+  // ===== 数据飞轮：诊断 → 候选 → 评测 → 晋升 =====
+  ipcMain.handle('flywheel_diagnose', () => {
+    try { return { success: true, data: flywheelDiagnose() } }
+    catch (e) { return { success: false, error: e.message } }
+  })
+
+  ipcMain.handle('flywheel_list_runs', (_event, args) => {
+    try { return { success: true, runs: db.listFlywheelRuns({ limit: args?.limit || 50 }) } }
+    catch (e) { return { success: false, error: e.message } }
+  })
+
+  ipcMain.handle('flywheel_get_run', (_event, args) => {
+    try {
+      const run = db.getFlywheelRun(args?.runId)
+      return run ? { success: true, run } : { success: false, error: '运行记录不存在' }
+    } catch (e) { return { success: false, error: e.message } }
+  })
+
+  ipcMain.handle('flywheel_optimize', async (_event, args) => {
+    try { return { success: true, result: await runOptimization(args || {}) } }
+    catch (e) { return { success: false, error: e.message } }
+  })
+
+  ipcMain.handle('flywheel_promote', (_event, args) => {
+    try { return { success: true, promotion: promoteRun(args?.runId) } }
+    catch (e) { return { success: false, error: e.message } }
+  })
+
+  ipcMain.handle('flywheel_rollback', (_event, args) => {
+    try { return { success: true, rollback: rollbackRun(args?.runId) } }
+    catch (e) { return { success: false, error: e.message } }
   })
 
   ipcMain.handle('get_notes', (_event, args) => {

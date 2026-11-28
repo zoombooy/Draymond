@@ -376,6 +376,24 @@ async function initDatabase() {
     WHERE taskName IS NULL OR taskName = ''
   `)
 
+  // flywheel_runs: 数据飞轮优化运行记录（诊断→候选→评测→晋升）
+  db.run(`
+    CREATE TABLE IF NOT EXISTS flywheel_runs (
+      id TEXT PRIMARY KEY,
+      skillId TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'diagnosing',
+      diagnosis TEXT,
+      candidate TEXT,
+      evaluation TEXT,
+      promotion TEXT,
+      promoted INTEGER NOT NULL DEFAULT 0,
+      rolledBack INTEGER NOT NULL DEFAULT 0,
+      error TEXT,
+      createdAt TEXT NOT NULL,
+      completedAt TEXT
+    );
+  `)
+
   db.run('CREATE INDEX IF NOT EXISTS idx_messages_sessionId ON messages(sessionId)')
   db.run('CREATE INDEX IF NOT EXISTS idx_notes_knowledgeBaseId ON notes(knowledgeBaseId)')
   db.run('CREATE INDEX IF NOT EXISTS idx_notes_notebookId ON notes(notebookId)')
@@ -705,6 +723,71 @@ export function deleteFeedback(id) {
   db.run('DELETE FROM agent_feedback WHERE id = ?', [id])
   saveDb()
   return true
+}
+
+// ========== flywheel_runs 表 CRUD（数据飞轮优化运行记录） ==========
+
+function parseJsonField(value) {
+  if (value && typeof value === 'string') {
+    try { return JSON.parse(value) } catch (_e) { return value }
+  }
+  return value
+}
+
+function mapFlywheelRun(row) {
+  if (!row) return row
+  return {
+    ...row,
+    diagnosis: parseJsonField(row.diagnosis),
+    candidate: parseJsonField(row.candidate),
+    evaluation: parseJsonField(row.evaluation),
+    promotion: parseJsonField(row.promotion),
+    promoted: !!row.promoted,
+    rolledBack: !!row.rolledBack
+  }
+}
+
+/** 创建一条飞轮运行记录 */
+export function createFlywheelRun({ id, skillId, status = 'diagnosing' }) {
+  const runId = id || generateId()
+  const now = nowISO()
+  db.run(
+    'INSERT INTO flywheel_runs (id, skillId, status, createdAt) VALUES (?, ?, ?, ?)',
+    [runId, skillId, status, now]
+  )
+  saveDb()
+  return { id: runId, skillId, status, createdAt: now }
+}
+
+/** 更新飞轮运行记录（仅更新传入字段） */
+export function updateFlywheelRun(id, patch = {}) {
+  const fields = ['status', 'diagnosis', 'candidate', 'evaluation', 'promotion', 'promoted', 'rolledBack', 'error', 'completedAt']
+  const sets = []
+  const params = []
+  for (const field of fields) {
+    if (!(field in patch)) continue
+    let value = patch[field]
+    if (['diagnosis', 'candidate', 'evaluation', 'promotion'].includes(field) && value != null && typeof value !== 'string') {
+      value = JSON.stringify(value)
+    }
+    if (['promoted', 'rolledBack'].includes(field)) value = value ? 1 : 0
+    sets.push(`${field} = ?`)
+    params.push(value)
+  }
+  if (!sets.length) return getFlywheelRun(id)
+  params.push(id)
+  db.run(`UPDATE flywheel_runs SET ${sets.join(', ')} WHERE id = ?`, params)
+  saveDb()
+  return getFlywheelRun(id)
+}
+
+export function getFlywheelRun(id) {
+  const row = queryOne('SELECT * FROM flywheel_runs WHERE id = ?', [id])
+  return mapFlywheelRun(row)
+}
+
+export function listFlywheelRuns({ limit = 50 } = {}) {
+  return queryAll('SELECT * FROM flywheel_runs ORDER BY createdAt DESC LIMIT ?', [limit]).map(mapFlywheelRun)
 }
 
 export function rollbackSession(sessionId, messageId) {

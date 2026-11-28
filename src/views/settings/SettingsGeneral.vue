@@ -140,6 +140,13 @@
             </div>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="arrow-icon"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </div>
+          <div class="setting-item clickable" @click="goToFlywheelSettings">
+            <div class="item-label-group">
+              <span class="item-label">{{ t('settings.flywheelTitle') }}</span>
+              <span class="item-hint">{{ t('settings.flywheelHint') }}</span>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="arrow-icon"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
         </div>
       </div>
 
@@ -1345,6 +1352,9 @@ const goToModuleSettings = () => {
 
 const goToBundleSettings = () => {
   router.push('/settings/bundles');
+};
+const goToFlywheelSettings = () => {
+  router.push('/settings/flywheel');
 };
 
 </script>

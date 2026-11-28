@@ -95,6 +95,11 @@ export const routes = [
     component: () => import('@/views/settings/SettingsBundles.vue')
   },
   {
+    path: '/settings/flywheel',
+    name: 'settings-flywheel',
+    component: () => import('@/views/settings/SettingsFlywheel.vue')
+  },
+  {
     path: '/friday',
     component: () => import('@/views/friday/FridayLayout.vue'),
     children: [
