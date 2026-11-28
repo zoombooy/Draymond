@@ -393,6 +393,28 @@
         </div>
       </div>
 
+      <!-- 运行日志（Agent 运行观测） -->
+      <div class="settings-group">
+        <div class="group-title">{{ t('settings.runtimeLogs') }}</div>
+        <div class="group-content">
+          <div class="setting-item">
+            <span class="item-label">{{ t('settings.runtimeLogsEnabled') }}</span>
+            <div class="logs-actions">
+              <button v-if="runtimeLogsEnabled" class="text-btn" @click="openLogDir">{{ t('settings.openLogDir') }}</button>
+              <label class="toggle-switch">
+                <input
+                  type="checkbox"
+                  v-model="runtimeLogsEnabled"
+                  :aria-label="t('settings.runtimeLogsEnabled')"
+                  @change="saveRuntimeLogsConfig"
+                />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- 通用提示弹窗（替代原生 alert/confirm） -->
@@ -513,6 +535,7 @@ const reminderLeadOptions = computed(() => [
 const enabledModuleCount = computed(() => Object.values(appStore.sidebarModules).filter(Boolean).length);
 const sidebarModuleCount = sidebarModuleConfig.length;
 
+const runtimeLogsEnabled = ref(true);
 const noteExporting = ref(false);
 
 // ========== 通用提示弹窗（替代原生 alert/confirm） ==========
@@ -1254,6 +1277,28 @@ const handleKeydown = (e) => {
   }
 };
 
+const saveRuntimeLogsConfig = async () => {
+  const nextValue = runtimeLogsEnabled.value;
+  try {
+    const config = await electronService.invoke('get-config');
+    if (!config) throw new Error('Failed to load config');
+    config.runtimeLogsEnabled = nextValue;
+    const result = await electronService.invoke('save-config', config);
+    if (result?.success === false) throw new Error(result.error || 'Failed to save config');
+  } catch (e) {
+    runtimeLogsEnabled.value = !nextValue;
+    notifyError(e.message || t('settings.runtimeLogsSaveFailed'));
+  }
+};
+
+// 打开运行日志所在目录（系统文件管理器）
+const openLogDir = async () => {
+  const res = await electronService.invoke('logs-open-dir');
+  if (!res || res.success === false) {
+    notifyError(res?.error || t('settings.openLogDirFailed'));
+  }
+};
+
 onMounted(() => {
   document.addEventListener('click', handleClickOutside);
   document.addEventListener('keydown', handleKeydown);
@@ -1262,6 +1307,7 @@ onMounted(() => {
   currentLanguage.value = appStore.language || 'zh-CN';
   electronService.invoke('get-config').then((config) => {
     if (config) {
+      runtimeLogsEnabled.value = config.runtimeLogsEnabled !== false;
       appStore.setSidebarModules(config.sidebarModules);
       if (config.reminderLeadMinutes) settings.reminderLeadMinutes = config.reminderLeadMinutes;
       if (config.reminderAllDayTime) settings.reminderAllDayTime = config.reminderAllDayTime;
@@ -1746,6 +1792,21 @@ const goToBundleSettings = () => {
 
 [data-theme='dark'] .theme-dropdown-menu {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+/* 运行日志 */
+.logs-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  height: 24px;
+}
+
+.logs-actions .text-btn {
+  height: 24px;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 24px;
 }
 
 /* Python 环境设置区块 */
