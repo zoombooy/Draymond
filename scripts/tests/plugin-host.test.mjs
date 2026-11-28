@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
+import * as tar from 'tar'
 import { PluginHost } from '../../src-electron/harness/pluginHost.js'
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -125,6 +126,53 @@ test('知识插件在本地宿主内走 agent.inject()', async () => {
   assert.equal(agent.injected.length, 1)
   assert.equal(agent.injected[0].source.kind, 'o-hino-knowledge')
   assert.ok(agent.injected[0].content[0].text.includes('本地 PluginHost'))
+})
+
+test('第三方 .tgz 包解压后按 package.json 入口加载', async () => {
+  const dir = tempDir()
+  const packageDir = path.join(dir, 'package')
+  fs.mkdirSync(packageDir, { recursive: true })
+  fs.writeFileSync(path.join(packageDir, 'package.json'), JSON.stringify({
+    name: 'demo-tgz-plugin',
+    version: '1.0.0',
+    type: 'module',
+    main: 'index.js'
+  }))
+  fs.writeFileSync(path.join(packageDir, 'index.js'), `
+    export const name = 'demo-tgz'
+    export function apply(ctx) { ctx.on('session/event', () => {}) }
+  `)
+  const archive = path.join(dir, 'demo.tgz')
+  await tar.c({ gzip: true, file: archive, cwd: dir }, ['package'])
+
+  const host = new PluginHost({
+    registryFile: path.join(dir, 'bundles.json'),
+    archiveCacheDir: path.join(dir, 'plugin-cache')
+  })
+  await host.start()
+  const added = await host.addBundle({ spec: archive, label: 'tgz 示例' })
+  const current = host.list().find(item => item.id === added.bundle.id)
+  assert.equal(current.loaded, true)
+  assert.equal(current.error, null)
+  assert.deepEqual(current.hooks, ['session/event'])
+  assert.ok(fs.existsSync(path.join(dir, 'plugin-cache')))
+})
+
+test('本地插件目录按约定入口加载', async () => {
+  const dir = tempDir()
+  const pluginDir = path.join(dir, 'demo-dir-plugin')
+  fs.mkdirSync(pluginDir, { recursive: true })
+  fs.writeFileSync(path.join(pluginDir, 'index.mjs'), `
+    export function apply(ctx) { ctx.on('session/event', () => {}) }
+  `)
+
+  const host = new PluginHost({ registryFile: path.join(dir, 'bundles.json') })
+  await host.start()
+  const added = await host.addBundle({ spec: pluginDir })
+  const current = host.list().find(item => item.id === added.bundle.id)
+  assert.equal(current.loaded, true)
+  assert.equal(current.error, null)
+  assert.deepEqual(current.hooks, ['session/event'])
 })
 
 test('用户 bundle 的增删改与启停直接进入本地宿主', async () => {

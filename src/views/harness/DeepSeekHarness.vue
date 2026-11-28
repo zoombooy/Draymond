@@ -38,7 +38,11 @@
         </div>
         <div class="summary-item summary-model">
           <span class="summary-label">{{ t('harness.model') }}</span>
-          <strong>{{ modelLabel }}</strong>
+          <strong v-if="hostStatus.model">{{ modelLabel }}</strong>
+          <div v-else class="model-missing">
+            <strong>{{ modelLabel }}</strong>
+            <button class="link-button" @click="openModelSettings">{{ t('harness.configureModel') }}</button>
+          </div>
         </div>
       </div>
 
@@ -280,7 +284,13 @@ async function addPlugin() {
   }
   newSpec.value = ''
   newLabel.value = ''
-  notice.value = result.added ? t('harness.pluginAdded') : t('harness.pluginUpdated')
+  if (result.error) {
+    notice.value = t('harness.pluginLoadFailed', { error: result.error })
+  } else if (result.loaded === false) {
+    notice.value = t('harness.pluginRegistered')
+  } else {
+    notice.value = result.added ? t('harness.pluginAdded') : t('harness.pluginUpdated')
+  }
   await refreshPlugins()
 }
 
@@ -530,6 +540,25 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.model-missing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--primary-color, #2563eb);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  text-decoration: underline;
 }
 
 .panel {

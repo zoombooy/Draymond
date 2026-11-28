@@ -2,7 +2,7 @@
  * DSH 第三方 bundle 注册表（第 2 层插件机制）
  * ==========================================
  *
- * 只做纯逻辑：登记用户添加的第三方插件（本地目录绝对路径 或 npm 包名），
+ * 只做纯逻辑：登记用户添加的第三方插件（本地目录绝对路径、.tgz 包或 npm 包名），
  * 生成可写入 cordis patch 的 loader 条目。不碰 Electron / IPC / 文件系统，
  * 便于用 node:test 直接验证。
  *
@@ -12,6 +12,9 @@
  *  - id 由 spec 派生并加前缀，保证与内置插件 id 不冲突。
  *  - patch 条目形如 `{ id, name, disabled, inject, config }`，与 DSH 原生一致。
  */
+
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 export const BUNDLE_ID_PREFIX = 'o-hino-user-'
 
@@ -30,7 +33,7 @@ export class BundleValidationError extends Error {
  * @param {string} input
  * @returns {string} 可直接作为 patch name 的 spec
  */
-export function normalizeBundleSpec(input, toFileUrl = spec => `file://${spec.replace(/\\/g, '/')}`) {
+export function normalizeBundleSpec(input, toFileUrl = spec => pathToFileURL(path.resolve(spec)).href) {
   if (typeof input !== 'string' || !input.trim()) {
     throw new BundleValidationError('插件路径或包名不能为空')
   }

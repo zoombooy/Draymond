@@ -28,7 +28,7 @@ node --test scripts/tests/migrate-harness-config.test.mjs \
          scripts/tests/knowledge-plugin.test.mjs
 ```
 
-**预期**：全通过（历史实测 32/32，2026-11-27；含 `bundle-registry.test.mjs` 与 `payload.agent` 契约用例）。新增 `plugin-host.test.mjs` 4 例后，全量单测实测 **48/48**（2026-11-28）。
+**预期**：全通过（历史实测 32/32，2026-11-27；含 `bundle-registry.test.mjs` 与 `payload.agent` 契约用例）。新增 `plugin-host.test.mjs` 6 例后，全量单测实测 **50/50**（2026-11-28）。
 
 这三个文件覆盖：旧配置清理规则（含 `name:` 写在第二行的条目）、工具清单与审批决策、知识注入正文构造、工具结果解析、`agent.inject()` 与主轮次合并的互斥逻辑、`HARNESS.md` 幂等投影。
 
@@ -242,20 +242,22 @@ dsh web: http://127.0.0.1:15996/?token=...
 
 ### 新增实现
 
-- `src-electron/harness/pluginHost.js`：本地插件宿主，实现 DSH 契约最小子集（`apply(ctx, config)`、事件总线、`tools/pre-execute` waterfall、`agent/pre-step`、`ctx.tools.execute`、`agent.inject`、审批挂起/放行）。
+- `src-electron/harness/pluginHost.js`：本地插件宿主，实现 DSH 契约最小子集（`apply(ctx, config)`、事件总线、`tools/pre-execute` waterfall、`agent/pre-step`、`ctx.tools.execute`、`agent.inject`、审批挂起/放行）。支持本地目录、`npm` 包名，以及 `npm pack` 产出的 `.tgz` / `.tar.gz` 包（解压到 `deepseek-harness/plugin-cache`，按 `package.json` 的 `exports` / `module` / `main` 入口加载；文件变化时按大小 + mtime 自动重新解包）。兼容官方 bundle 常用的 `ctx.effect()` 与 `ctx.tools.register(defineTool(...))`，并在 `apply` 期间把 `@deepseek-ai/dsh-tools` 的 require 兜底解析到 o-hino 自身依赖。
 - `src/views/harness/DeepSeekHarness.vue`：本地插件管理页；内置插件与第三方 bundle 列表、启停、添加/移除、审批队列、工具调用测试。SDK 通道降级为手动开启的兼容性实验页。
 - `src-electron/harness/index.js`：默认启动本地宿主；完整 DSH web 通道仅在 `O_HINO_LEGACY_DSH_WEB=1` 时启用。`harness-plugins-*` IPC 用于本地插件管理。
 - `src-electron/harness/index.js`：本地知识工具直接调用 RAG `searchKnowledgeBase`，不再依赖 DSH 内的 MCP 工具。
 
 ### 单测
 
-新增 `scripts/tests/plugin-host.test.mjs`（4 例）：
+新增 `scripts/tests/plugin-host.test.mjs`（6 例）：
 
 | 用例 | 结果 |
 |---|---|
 | waterfall 审批钩子阻塞工具直到确认 | 通过 |
 | 拒绝审批时工具不执行 | 通过 |
 | 知识插件在本地宿主内走 `agent.inject()` | 通过 |
+| 第三方 `.tgz` 包解压后按 `package.json` 入口加载 | 通过 |
+| 本地插件目录按约定入口加载 | 通过 |
 | 用户 bundle 增删改与启停立即生效 | 通过 |
 
 复跑相关测试：
@@ -266,20 +268,21 @@ node --test scripts/tests/plugin-host.test.mjs \
   scripts/tests/knowledge-plugin.test.mjs \
   scripts/tests/tool-bridge.test.mjs \
   scripts/tests/sdk-bridge.test.mjs
-# tests 28 / pass 28 / fail 0
-# 全量：node --test scripts/tests/*.test.mjs → tests 48 / pass 48 / fail 0
+# tests 30 / pass 30 / fail 0
+# 全量：node --test scripts/tests/*.test.mjs → tests 50 / pass 50 / fail 0
 ```
 
 ### UI 验证要点（默认路径）
 
 1. 进入左侧拼图「插件」页：宿主状态直接显示「本地宿主已就绪」，不再出现 `starting` 等待约 25 秒或 `forbidden`。
-2. 插件列表应显示 2 个内置插件：`o-hino 工具审批`、`o-hino 知识注入`，均已加载且列出钩子。
-3. 添加第三方插件（本地绝对路径或 npm 包名）后，列表中立即出现并可启停；停用后 `loaded` 变为未加载。
-4. 工具测试区选择 `mcp__o-hino__retrieve_knowledge`，传入 `{"query":"...","topK":3}`，应返回知识片段或“未在知识库中检索到相关内容”。
-5. 需要 DSH ids 兼容验证时，手动切到「DSH 可选通道」页启动 SDK；默认不要依赖该通道。
+2. 摘要栏「模型」应显示当前设置里已选择的模型（如 `deepseek / deepseek-flash`）；只有确实没配置时才显示「未配置」并给出「去配置」入口。
+3. 插件列表应显示 2 个内置插件：`o-hino 工具审批`、`o-hino 知识注入`，均已加载且列出钩子。
+4. 添加第三方插件（本地绝对路径、`.tgz` 包或 npm 包名）后，列表中立即出现并可启停；若加载失败，提示明确写「插件已登记但加载失败」，而不是误报「插件已添加」。停用后 `loaded` 变为未加载。本机实测 `dsh-office-0.3.1.tgz` 已加载成功并注册 9 个 office 工具，主进程日志为 `local host ready: 3 plugins, 10 tools`。
+5. 工具测试区选择 `mcp__o-hino__retrieve_knowledge`，传入 `{"query":"...","topK":3}`，应返回知识片段或“未在知识库中检索到相关内容”。
+6. 需要 DSH ids 兼容验证时，手动切到「DSH 可选通道」页启动 SDK；默认不要依赖该通道。
 
 ### 依赖说明
 
-`package.json` 的 `electron` 已回到 `^42.2.0`，与 `package-lock.json` 一致；默认本地宿主不依赖 DSH 0.2 的 Electron 43 原生模块白名单。若后续启用完整 DSH 通道，再按历史记录单独升级 Electron 与 peer 依赖。
+`package.json` 的 `electron` 已回到 `^42.2.0`，与 `package-lock.json` 一致；默认本地宿主不依赖 DSH 0.2 的 Electron 43 原生模块白名单。第三方 `.tgz` 插件解压显式依赖 `tar@^7.5.2`（已写入 `package.json` 与 `package-lock.json`）。若后续启用完整 DSH 通道，再按历史记录单独升级 Electron 与 peer 依赖。
 
 完整生产构建本轮未通过，原因是环境里 `node_modules/pdfjs-dist/wasm/openjpeg.wasm` 缺失（既有依赖残缺，与本次插件宿主改动无关）；Vue SFC 与 i18n 资源已单独编译校验通过，开发服务与 Electron 主进程已实测正常启动。

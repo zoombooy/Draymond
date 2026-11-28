@@ -8,8 +8,8 @@
 
 现已收敛为：
 
-- 默认宿主：`src-electron/harness/pluginHost.js`，在 o-hino 主进程内实现 DSH 插件契约的最小子集（`apply(ctx, config)`、`ctx.on`、`tools/pre-execute`、`agent/pre-step`、`ctx.tools.execute`、`agent.inject`）。
-- 默认 UI：`src/views/harness/DeepSeekHarness.vue` 改为本地插件管理页，不再加载 iframe；内置插件、第三方 bundle、审批队列、工具测试都在本地页完成。
+- 默认宿主：`src-electron/harness/pluginHost.js`，在 o-hino 主进程内实现 DSH 插件契约的最小子集（`apply(ctx, config)`、`ctx.on`、`ctx.effect`、`tools/pre-execute`、`agent/pre-step`、`ctx.tools.execute`、`agent.inject`），并兼容官方 bundle 的 `ctx.tools.register(defineTool(...))` 与 `@deepseek-ai/dsh-tools` 解析方式。
+- 默认 UI：`src/views/harness/DeepSeekHarness.vue` 改为本地插件管理页，不再加载 iframe；内置插件、第三方 bundle、审批队列、工具测试都在本地页完成。第三方插件支持本地目录、npm 包名和 `npm pack` 产出的 `.tgz` / `.tar.gz`：解包到 `deepseek-harness/plugin-cache`，按 `package.json` 的 `exports` / `module` / `main` 入口加载；摘要栏模型直接读取 o-hino 当前选择的模型，未配置时提供跳转入口。
 - 知识检索：本地宿主直接调用 `src-electron/rag/index.js` 的 `searchKnowledgeBase`，不再经过 DSH 的 MCP 桥接。
 - Electron：包约束回到 `^42.2.0`（与 `package-lock.json` 一致），默认宿主不依赖 DSH 0.2 的原生模块白名单。
 - 完整 DSH web 通道：保留代码但默认关闭。只有显式设置 `O_HINO_LEGACY_DSH_WEB=1` 才走旧路径；SDK JSON-RPC 通道仍作为手动开启的兼容性实验入口。

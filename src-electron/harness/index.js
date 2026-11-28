@@ -102,6 +102,8 @@ function harnessPaths() {
     credentials: path.join(root, 'home', '.credentials.yaml'),
     patch: path.join(root, 'home', 'o-hino.patch.yml'),
     bundles: path.join(root, 'bundles.json'),
+    // .tgz / 目录插件解压缓存；放在 dataDir 下，便于跟随应用数据一起迁移。
+    pluginCache: path.join(root, 'plugin-cache'),
     // 插件随应用一起打包，不再复制到 DSH home，避免版本漂移。
     approvalPlugin: path.resolve(__dirname, '..', '..', 'plugins', 'o-hino-tools', 'index.js'),
     knowledgePlugin: path.resolve(__dirname, '..', '..', 'plugins', 'o-hino-knowledge', 'index.js'),
@@ -311,6 +313,7 @@ function ensurePluginHost() {
 
   pluginHost = new PluginHost({
     registryFile: paths.bundles,
+    archiveCacheDir: paths.pluginCache,
     builtins: [
       {
         id: 'builtin-o-hino-tools',
@@ -365,6 +368,9 @@ async function startLocalPluginHost() {
   const model = selectedModelOrNull()
   console.log(`[PluginHost] local host ready: ${host.list().filter(item => item.loaded).length} plugins, ${host.listTools().length} tools`)
   return updateState({
+    // localHostStatus() 读取的是更新前的 state，必须先展开再覆盖，
+    // 否则旧的 model: null 会把刚解析出来的模型信息再次冲掉。
+    ...localHostStatus(),
     status: 'ready',
     mode: 'local',
     url: null,
@@ -372,8 +378,7 @@ async function startLocalPluginHost() {
     model: model
       ? { providerLabel: model.providerLabel, modelName: model.modelName }
       : null,
-    error: null,
-    ...localHostStatus()
+    error: null
   })
 }
 
@@ -983,7 +988,14 @@ export function registerHarnessCommands(window) {
     const host = ensurePluginHost()
     try {
       const result = await host.addBundle(input)
-      return { ...result, ok: true }
+      const current = host.list().find(item => item.id === result.bundle?.id)
+      // 写注册表成功不等于插件加载成功；把真实加载结果回传，避免 UI 误报成功。
+      return {
+        ...result,
+        ok: true,
+        loaded: Boolean(current?.loaded),
+        error: current?.error || null
+      }
     } catch (error) {
       return { ok: false, error: error.message || String(error) }
     }
