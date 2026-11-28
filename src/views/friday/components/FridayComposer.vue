@@ -745,16 +745,18 @@ onDeactivated(closeAllDropdowns);
 }
 
 /* ---------- 上下文条 ---------- */
+/* 与输入框采用相同的宽度约束和居中方式，保证上下文条与输入框左右对齐 */
 .composer-context-bar {
   display: flex;
   gap: 8px;
-  margin-bottom: 10px;
+  box-sizing: border-box;
+  width: 100%;
   max-width: 750px;
+  margin: 0 auto 10px;
 }
 
 .friday-composer.is-conversation .composer-context-bar {
   max-width: 900px;
-  margin: 0 auto;
 }
 
 .context-btn {

@@ -393,93 +393,7 @@
         </div>
       </div>
 
-      <!-- 关于 -->
-      <div class="settings-group">
-        <div class="group-title">{{ t('settings.about') }}</div>
-        <div class="group-content">
-          <div class="setting-item clickable" @click="showAboutModal = true">
-            <span class="item-label">{{ t('settings.aboutApp') }}</span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="arrow-icon"><polyline points="9 18 15 12 9 6"></polyline></svg>
-          </div>
-          <div class="setting-item">
-            <span class="item-label">{{ t('settings.versionLabel') }}&nbsp;{{ appVersion }}</span>
-            <button class="text-btn" @click="checkForUpdate">{{ t('settings.checkUpdate') }}</button>
-          </div>
-          <div class="setting-item">
-            <span class="item-label">{{ t('settings.runtimeLogs') }}</span>
-            <div class="logs-actions">
-              <button v-if="runtimeLogsEnabled" class="text-btn" @click="openLogDir">{{ t('settings.openLogDir') }}</button>
-              <label class="toggle-switch">
-                <input
-                  type="checkbox"
-                  v-model="runtimeLogsEnabled"
-                  :aria-label="t('settings.runtimeLogsEnabled')"
-                  @change="saveRuntimeLogsConfig"
-                />
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-          </div>
-          <div class="setting-item clickable" @click="showFeaturesModal = true">
-            <span class="item-label">{{ t('settings.features') }}</span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="arrow-icon"><polyline points="9 18 15 12 9 6"></polyline></svg>
-          </div>
-        </div>
-      </div>
     </div>
-
-    <!-- 关于 o-hino 弹窗 -->
-    <Teleport to="body">
-      <div v-if="showAboutModal" class="info-modal-overlay" @click.self="showAboutModal = false">
-        <div class="info-modal-container">
-          <button class="info-modal-close" @click="showAboutModal = false">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
-          <div class="about-modal-body">
-            <div class="about-logo">
-              <img :src="aboutLogo" alt="o-hino" class="about-logo-img" />
-            </div>
-            <h2 class="about-title">o-hino</h2>
-            <p class="about-version">{{ t('settings.version') }} {{ appVersion }}</p>
-            <p class="about-desc">{{ t('settings.aboutDesc') }}</p>
-            <div class="about-links">
-              <a class="about-link" @click="openHelpUrl">{{ t('settings.githubLink') }}</a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
-
-    <!-- 功能介绍 弹窗 -->
-    <Teleport to="body">
-      <div v-if="showFeaturesModal" class="info-modal-overlay" @click.self="showFeaturesModal = false">
-        <div class="info-modal-container info-modal-wide">
-          <div class="info-modal-header">
-            <h3 class="info-modal-title">{{ t('settings.features') }}</h3>
-            <button class="info-modal-close" @click="showFeaturesModal = false">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
-          </div>
-          <div class="features-modal-body">
-            <div v-for="feature in features" :key="feature.title" class="feature-item">
-              <div class="feature-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="feature.icon"></svg>
-              </div>
-              <div class="feature-text">
-                <div class="feature-name">{{ feature.title }}</div>
-                <div class="feature-desc">{{ feature.desc }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
 
     <!-- 通用提示弹窗（替代原生 alert/confirm） -->
     <Teleport to="body">
@@ -537,12 +451,11 @@ import { useTheme } from '@/utils/theme';
 import { electronService } from '@/services/electron';
 import { setI18nLanguage } from '@/i18n';
 import { sidebarModuleConfig } from '@/config/menu';
-import packageJson from '../../../package.json';
 
 const { t } = useI18n();
 const router = useRouter();
 const appStore = useAppStore();
-const { currentMode, appliedTheme, setTheme: applyTheme, initTheme } = useTheme();
+const { currentMode, setTheme: applyTheme, initTheme } = useTheme();
 
 const showThemeDropdown = ref(false);
 const themeSelectRef = ref(null);
@@ -600,7 +513,6 @@ const reminderLeadOptions = computed(() => [
 const enabledModuleCount = computed(() => Object.values(appStore.sidebarModules).filter(Boolean).length);
 const sidebarModuleCount = sidebarModuleConfig.length;
 
-const runtimeLogsEnabled = ref(true);
 const noteExporting = ref(false);
 
 // ========== 通用提示弹窗（替代原生 alert/confirm） ==========
@@ -1285,20 +1197,6 @@ const saveNoteFimCompletion = async () => {
   } catch (_e) {}
 };
 
-const saveRuntimeLogsConfig = async () => {
-  const nextValue = runtimeLogsEnabled.value;
-  try {
-    const config = await electronService.invoke('get-config');
-    if (!config) throw new Error('Failed to load config');
-    config.runtimeLogsEnabled = nextValue;
-    const result = await electronService.invoke('save-config', config);
-    if (result?.success === false) throw new Error(result.error || 'Failed to save config');
-  } catch (e) {
-    runtimeLogsEnabled.value = !nextValue;
-    notifyError(e.message || t('settings.runtimeLogsSaveFailed'));
-  }
-};
-
 const selectScheduleView = async (value) => {
   if (value !== 'week' && value !== 'month' && value !== 'quadrant') return;
   settings.scheduleDefaultView = value;
@@ -1364,7 +1262,6 @@ onMounted(() => {
   currentLanguage.value = appStore.language || 'zh-CN';
   electronService.invoke('get-config').then((config) => {
     if (config) {
-      runtimeLogsEnabled.value = config.runtimeLogsEnabled !== false;
       appStore.setSidebarModules(config.sidebarModules);
       if (config.reminderLeadMinutes) settings.reminderLeadMinutes = config.reminderLeadMinutes;
       if (config.reminderAllDayTime) settings.reminderAllDayTime = config.reminderAllDayTime;
@@ -1404,68 +1301,6 @@ const goToBundleSettings = () => {
   router.push('/settings/bundles');
 };
 
-// ========== 关于 / 功能介绍 ==========
-const HELP_URL = 'https://github.com/cheney-plus/o-hino-electron';
-
-const showAboutModal = ref(false);
-const showFeaturesModal = ref(false);
-
-const appVersion = packageJson.version;
-
-const aboutLogo = computed(() => {
-  return appliedTheme.value === 'dark'
-    ? new URL('@/assets/images/friday-b.png', import.meta.url).href
-    : new URL('@/assets/images/friday-w.webp', import.meta.url).href;
-});
-
-const features = computed(() => [
-  {
-    title: t('settings.featureSmartNote'),
-    desc: t('settings.featureSmartNoteDesc'),
-    icon: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="13" y2="17"></line>'
-  },
-  {
-    title: t('settings.featureRag'),
-    desc: t('settings.featureRagDesc'),
-    icon: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>'
-  },
-  {
-    title: t('settings.featureAiAssistant'),
-    desc: t('settings.featureAiAssistantDesc'),
-    icon: '<circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line>'
-  },
-  {
-    title: t('settings.featureMultiModel'),
-    desc: t('settings.featureMultiModelDesc'),
-    icon: '<path d="M12 2a10 10 0 1 0 10 10"></path><path d="M12 6v6l4 2"></path>'
-  },
-  {
-    title: t('settings.featureBackup'),
-    desc: t('settings.featureBackupDesc'),
-    icon: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line>'
-  },
-  {
-    title: t('settings.featureAgent'),
-    desc: t('settings.featureAgentDesc'),
-    icon: '<rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8" y2="16"></line><line x1="16" y1="16" x2="16" y2="16"></line>'
-  }
-]);
-
-const openHelpUrl = () => {
-  electronService.invoke('open-external', HELP_URL);
-};
-
-// 打开运行日志所在目录（系统文件管理器）
-const openLogDir = async () => {
-  const res = await electronService.invoke('logs-open-dir');
-  if (!res || res.success === false) {
-    notifyError(res?.error || t('settings.openLogDirFailed'));
-  }
-};
-
-const checkForUpdate = () => {
-  electronService.invoke('open-external', `${HELP_URL}/releases`);
-};
 </script>
 
 <style scoped>
@@ -1909,215 +1744,8 @@ const checkForUpdate = () => {
   color: #f59e0b;
 }
 
-/* 关于 / 功能介绍 弹窗 */
-.info-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  animation: infoFadeIn 0.2s ease;
-}
-
-@keyframes infoFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.info-modal-container {
-  position: relative;
-  background-color: var(--bg-primary);
-  border-radius: 14px;
-  width: 90%;
-  max-width: 400px;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-  animation: infoSlideUp 0.25s ease;
-  overflow: hidden;
-}
-
-.info-modal-wide {
-  max-width: 580px;
-}
-
-@keyframes infoSlideUp {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-
-.info-modal-close {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-tertiary);
-  transition: color 0.15s;
-  border-radius: 4px;
-  z-index: 1;
-}
-
-.info-modal-close:hover {
-  color: var(--text-primary);
-  background-color: var(--bg-hover);
-}
-
-.info-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 24px 16px;
-  border-bottom: 1px solid var(--border-color);
-  flex-shrink: 0;
-}
-
-.info-modal-title {
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-/* 关于弹窗内容 */
-.about-modal-body {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 36px 28px 28px;
-  text-align: center;
-}
-
-.about-logo {
-  margin-bottom: 16px;
-}
-
-.about-logo-img {
-  width: 72px;
-  height: 72px;
-  object-fit: contain;
-  border-radius: 16px;
-}
-
-.about-title {
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 6px;
-}
-
-.about-version {
-  font-size: 13px;
-  color: var(--text-tertiary);
-  margin: 0 0 18px;
-}
-
-.about-desc {
-  font-size: 14px;
-  color: var(--text-secondary);
-  line-height: 1.6;
-  margin: 0 0 20px;
-}
-
-.about-links {
-  display: flex;
-  gap: 16px;
-}
-
-.about-link {
-  font-size: 13px;
-  color: #10b981;
-  cursor: pointer;
-  text-decoration: none;
-  transition: opacity 0.15s;
-}
-
-.about-link:hover {
-  opacity: 0.8;
-}
-
-/* 功能介绍弹窗内容 */
-.features-modal-body {
-  padding: 12px 16px 20px;
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-}
-
-.feature-item {
-  display: flex;
-  gap: 14px;
-  padding: 14px 14px;
-  border-radius: 10px;
-  transition: background-color 0.15s;
-}
-
-.feature-item:hover {
-  background-color: var(--bg-hover);
-}
-
-.feature-icon {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background-color: var(--bg-hover);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #10b981;
-}
-
-.feature-text {
-  flex: 1;
-  min-width: 0;
-}
-
-.feature-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 4px;
-}
-
-.feature-desc {
-  font-size: 13px;
-  color: var(--text-tertiary);
-  line-height: 1.5;
-}
-
-/* 运行日志 */
-.logs-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  height: 24px;
-}
-
-.logs-actions .text-btn {
-  height: 24px;
-  padding-top: 0;
-  padding-bottom: 0;
-  line-height: 24px;
-}
-
 [data-theme='dark'] .theme-dropdown-menu {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
-}
-
-[data-theme='dark'] .info-modal-container {
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
 }
 
 /* Python 环境设置区块 */
