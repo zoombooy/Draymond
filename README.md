@@ -24,8 +24,9 @@
 
 - 借鉴 DeepSeek Harness（DSH）插件契约，但在 o-hino 主进程内实现轻量 `PluginHost`，默认不加载 DSH 运行时、不使用 iframe
 - 插件写法：`name` / `inject` / `apply(ctx, config)`；支持 `tools/pre-execute`、`agent/pre-step`、`session/event` 等钩子
+- **插件工具直接参与日常对话**：桥接层把插件工具镜像注册进对话工具集，你在聊天里提问时 AI 会自动选择调用（如读取 Office 文档的 `office_docs_read`），无需在插件页手动点；只读工具免审批，写操作弹确认框
 - 内置 `o-hino-tools`：敏感工具调用需用户确认；内置 `o-hino-knowledge`：对话时自动检索本地知识库并经 `agent.inject()` 注入上下文
-- 插件页支持第三方 bundle 的添加、移除与即时启停，并提供工具调用测试入口
+- 插件页支持第三方 bundle（本地目录 / npm 包 / `.tgz`）的添加、移除与即时启停，并提供工具调用测试入口
 - 完整 DSH web / SDK 通道保留为可选兼容性实验能力，默认关闭（web 通道需设置 `O_HINO_LEGACY_DSH_WEB=1`）
 
 ### 📚 知识库

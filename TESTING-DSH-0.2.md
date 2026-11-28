@@ -286,26 +286,30 @@ node --test scripts/tests/plugin-host.test.mjs \
 插件页里的第三方工具已桥接进日常对话 Agent，不再只能手动点调用：
 
 - 新增 `src-electron/agent/pluginBridge.js`：
-  - `syncPluginTools()` 在每次 `createAgent()` 前把 PluginHost 工具镜像注册为 `plugin__<原名>`，复用 registry 的日志/审计/`agent-tool-*`/审批包装；跳过宿主内置的 `mcp__o-hino__*`（对话已有内置 `retrieve_knowledge`）。
+  - `syncPluginTools()` 在每次 `createAgent()` 前把 PluginHost 工具镜像注册进 registry，复用日志/审计/`agent-tool-*`/审批包装；跳过宿主内置的 `mcp__o-hino__*`（对话已有内置 `retrieve_knowledge`）。工具名**优先用原名**（如 `office_docs_read`，LLM 易识别），仅与内置工具重名时才回退为 `plugin__<原名>`。
   - `runPluginPreStep()` 在每轮 `agent-invoke` 中触发 `session/event` 和 `agent/pre-step`，并消费上一轮 `agent.inject()` 排队的知识消息。
   - 桥接失败一律 try/catch 降级为无插件，不阻断对话。
 - `src-electron/agent/tools/registry.js` 新增 `unregisterTool()`；`src-electron/harness/index.js` 新增 `getSharedPluginHost()`；`src-electron/agent/index.js` 与 `ipc.js` 埋入同步与事件触发点。
-- 第三方插件工具一律要求审批（`requireApproval: true`），走 Friday 现有的 `ToolApprovalDialog`，与内置写操作审批体验一致。
+- **审批策略（2026-11-28 调整）**：按工具名判定只读（read/check/get/list/selection/inspect/view/query/search/status/dump/describe），只读工具**免审批**、无需填 `riskAssessment`，避免 LLM 为省事绕开插件改走 `python_repl`；写/外部副作用工具仍要求审批，走 Friday 现有的 `ToolApprovalDialog`。
+- **工具选用规则**：工具描述与系统提示词明确「涉及读取/查看/检查 Office 文档（.docx/.xlsx）必须只用名单内插件工具，禁止用 `python_repl` 解压 XML/zip；不要调用名单外的 `office_*` 工具（如内置 `office_inspect`，当前环境未安装 Office CLI，必然失败）」。系统提示词会列出当前已桥接的工具全名。
 
-新增 `scripts/tests/plugin-bridge.test.mjs`（5 例）：
+新增 `scripts/tests/plugin-bridge.test.mjs`（6 例）：
 
 | 用例 | 结果 |
 |---|---|
-| 插件工具镜像注册为 `plugin__` 前缀且跳过宿主内置工具 | 通过 |
+| 插件工具以原名镜像注册且跳过宿主内置工具 | 通过 |
+| 只读工具免审批、写工具仍要求审批 | 通过 |
 | 桥接工具的 handler 能真正调用到插件工具 | 通过 |
 | 再次同步会注销上一轮工具，插件停用后不再出现 | 通过 |
 | `runPluginPreStep` 触发 `session/event` 并合并 pre-step 消息 | 通过 |
 | 上一轮 `agent.inject()` 排队的知识插入用户输入之前 | 通过 |
 
-**端到端验证方式**：插件页添加并启用 office 插件后，直接在 Friday 对话里说「帮我读取 D:\office-work 下 xxx.docx 的内容」，Agent 工具列表应出现 `plugin__office_docs_read` 等工具并可选择调用；调用写类工具（如 `plugin__office_docs_write`）应弹出 Friday 的审批框。全量单测：`node --test scripts/tests/*.test.mjs` → 实测 **55/55**（含桥接 5 例）。
+**端到端验证方式（已实测通过，2026-11-28）**：插件页添加并启用 `dsh-office-0.3.1.tgz` 后，直接在 Friday 对话里说「帮我读取 D:\office-work 下 业务数据标准编码方案.docx 的内容」。实测日志（03:05）：`office_docs_read` 调用成功（19.8s，返回 6756 字符，107 个块 / 4 张表格），**未再使用 `python_repl`**。期间模型先误调内置 `office_inspect`（未装 CLI，2ms 失败），随后按提示词规则回退到插件工具；已补强提示词，明确禁止调用名单外的 `office_*` 工具。写类工具（如 `office_docs_write`）应弹出 Friday 审批框。全量单测：`node --test scripts/tests/*.test.mjs` → 实测 **56/56**（含桥接 6 例）。
+
+**知识注入实测**：同轮日志出现 `插件 pre-step 合并消息: 1 条`，证明事件桥已触发。但 RAG 检索本身失败——日志 `RAG: 当前首选模型未配置 Embedding 模型名称`，这是模型配置问题（需在模型设置里配 Embedding 模型），不是桥接代码问题。
 
 ### 依赖说明
 
 `package.json` 的 `electron` 已回到 `^42.2.0`，与 `package-lock.json` 一致；默认本地宿主不依赖 DSH 0.2 的 Electron 43 原生模块白名单。第三方 `.tgz` 插件解压显式依赖 `tar@^7.5.2`（已写入 `package.json` 与 `package-lock.json`）。若后续启用完整 DSH 通道，再按历史记录单独升级 Electron 与 peer 依赖。
 
-完整生产构建本轮未通过，原因是环境里 `node_modules/pdfjs-dist/wasm/openjpeg.wasm` 缺失（既有依赖残缺，与本次插件宿主改动无关）；Vue SFC 与 i18n 资源已单独编译校验通过，开发服务与 Electron 主进程已实测正常启动。
+完整生产构建已通过（2026-11-28）：此前 `node_modules/pdfjs-dist/wasm/` 下只剩 fallback JS、`openjpeg.wasm` 与 `jbig2.wasm` 二进制缺失（npm 中断残留），已从官方 `pdfjs-dist@6.5.438` tarball 补齐这两个文件。`vite build` 实测 14.77s 构建成功，仅有 chunk >500kB 的无害警告。该补齐只改 `node_modules`，不涉及版本变更或源码改动。

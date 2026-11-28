@@ -180,8 +180,10 @@ export async function createAgent(modelConfig, options = {}) {
         : '') +
       (bridgedToolCount > 0
         ? '## 用户插件工具（优先使用）\n' +
-          `用户安装了 ${bridgedToolCount} 个插件工具：${bridgedToolNames.join('、')}。\n` +
-          '这些是用户为特定任务安装的专用能力。**当任务涉及读取/查看/检查 Office 文档（.docx/.xlsx）时，必须先使用对应的 office_* 插件工具，禁止用 python_repl 手工解压 XML 或 zip 代替**；只有在没有对应插件工具时才回退到通用工具。只读工具可直接调用，写操作会要求用户审批。\n\n'
+          `用户安装了 ${bridgedToolCount} 个插件工具，完整名单：${bridgedToolNames.join('、')}。\n` +
+          '这些是用户为特定任务安装的专用能力。**当任务涉及读取/查看/检查 Office 文档（.docx/.xlsx）时，必须只调用上面名单中列出的工具（如 office_docs_read / office_sheet_read / office_check），禁止用 python_repl 手工解压 XML 或 zip 代替**。\n' +
+          '**不要调用名称不在名单中的 office_* 工具（例如 office_inspect）：那些是内置 CLI 工具，当前环境未安装 CLI，调用必然失败。**\n' +
+          '只读工具可直接调用，写操作会要求用户审批。\n\n'
         : '') +
       '## 文件存放约束（强制）\n' +
       `Agent 工作区根目录绝对路径：${rootDir}\n` +
