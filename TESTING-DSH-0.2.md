@@ -313,3 +313,29 @@ node --test scripts/tests/plugin-host.test.mjs \
 `package.json` 的 `electron` 已回到 `^42.2.0`，与 `package-lock.json` 一致；默认本地宿主不依赖 DSH 0.2 的 Electron 43 原生模块白名单。第三方 `.tgz` 插件解压显式依赖 `tar@^7.5.2`（已写入 `package.json` 与 `package-lock.json`）。若后续启用完整 DSH 通道，再按历史记录单独升级 Electron 与 peer 依赖。
 
 完整生产构建已通过（2026-11-28）：此前 `node_modules/pdfjs-dist/wasm/` 下只剩 fallback JS、`openjpeg.wasm` 与 `jbig2.wasm` 二进制缺失（npm 中断残留），已从官方 `pdfjs-dist@6.5.438` tarball 补齐这两个文件。`vite build` 实测 14.77s 构建成功，仅有 chunk >500kB 的无害警告。该补齐只改 `node_modules`，不涉及版本变更或源码改动。
+
+## 对话输入框改造（2026-11-28）：对齐 Yuxi 交互
+
+参考 `xerrors/Yuxi` 的对话输入体验，对首页与对话页共用的 `FridayComposer` 做了增强，覆盖工作区、加号菜单、模型选择、工作模式四块。
+
+### 新增实现
+
+- `src/views/friday/composables/useWorkspaces.js`：本地工作区实体（默认工作区 + 用户新建/重命名/删除，localStorage 持久化），`friday store` 新增 `workspaceId`。
+- `src/views/friday/constants.js`：模型能力关键词推断 `inferCapabilities()`、上下文长度推断 `inferContextLabel()`、`CHAT_MODES`（含新增 create/arena）。
+- `src/views/friday/composables/useModelCatalog.js`：`modelList` 增加 `capabilities`/`contextLabel`/`provider` 字段。
+- `FridayComposer.vue`：输入区上方新增「工作区 / 工作模式」选择条；加号菜单含添加附件、上传图片、知识库、工具、技能、MCP（后三类数据源走 `agent-list-tools` / `agent-list-skills` / `mcp-list-servers`）；模型下拉改为可搜索、按平台分组、带能力角标与上下文长度。
+- `useChatStream.js`：新增 `folderPath` 透传（后端三条 IPC 均已支持），`create`/`arena` 模式复用 Agent 运行时（arena 多模型并跑留作后续扩展）。
+- i18n：zh-CN / en-US 补齐新文案。
+
+### 验证记录
+
+- 语法与 SFC 编译：`node --check` + `@vue/compiler-sfc` 解析 3 个相关 Vue 文件全部通过。
+- 全量单测：`node --test scripts/tests/*.test.mjs` → **56/56** 通过。
+- 生产构建：`vite build` 25.47s 成功，仅 chunk >500kB 无害警告。
+- 浏览器实测（Edge headless + CDP）：注入 3 个模型后，模型面板显示搜索框、思考模式切换、按平台分组（DashScope/DeepSeek/豆包）、能力角标（多模态）、上下文角标（128K）；加号菜单六项齐全；工作区/模式按钮正常显示。首页截图布局无重叠或错乱。
+
+### 仍需你在 UI 里实测（需 Electron 环境）
+
+- 加号菜单的「工具/技能/MCP」子菜单数据依赖 `window.electronAPI`（headless 环境为空），需在真实 Electron 窗口确认列表能加载、点击能插入 `@名称` 提及。
+- 新建工作区时「浏览目录」走原生对话框 + 选中路径作为 `folderPath` 注入，需在真实窗口确认 Agent 的文件读写落在该目录。
+- `create`（创造）/`arena`（竞技）模式的实际行为：当前均走 Agent 通道，arena 的多模型并跑尚未实现，仅保留模式入口。

@@ -1,5 +1,11 @@
 import { computed, ref } from 'vue';
-import { MODEL_STORAGE_KEY, SELECTED_MODEL_KEY, providerIcons } from '@/views/friday/constants';
+import {
+  MODEL_STORAGE_KEY,
+  SELECTED_MODEL_KEY,
+  providerIcons,
+  inferCapabilities,
+  inferContextLabel
+} from '@/views/friday/constants';
 import { useFridayStore } from '@/store';
 
 export function loadCustomModelsFromStorage() {
@@ -33,8 +39,14 @@ export function useModelCatalog() {
   const modelList = computed(() => customModels.value.map(model => ({
     id: model.id,
     name: `${model.providerLabel} ${model.modelName}`,
+    modelName: model.modelName,
+    provider: model.provider,
+    providerLabel: model.providerLabel,
     embeddingName: model.embeddingModelName || '',
-    icon: providerIcons[model.provider] || providerIcons.other
+    icon: providerIcons[model.provider] || providerIcons.other,
+    capabilities: inferCapabilities(model),
+    contextLabel: model.contextWindow || inferContextLabel(model.modelName),
+    raw: model
   })));
 
   function loadCustomModels() {

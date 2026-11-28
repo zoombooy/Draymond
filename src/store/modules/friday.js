@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 const MODE_KEY = 'o-hino-chat-mode'
 const THINK_KEY = 'o-hino-think-mode'
 const SELECTED_MODEL_KEY = 'o-hino-selected-model'
+const SELECTED_WORKSPACE_KEY = 'o-hino-selected-workspace'
 const HISTORY_WIDTH_KEY = 'o-hino-history-sidebar-width'
 const HISTORY_SESSIONS_KEY = 'o-hino-history-sessions'
 const DEFAULT_HISTORY_WIDTH = 240
@@ -49,6 +50,7 @@ export const useFridayStore = defineStore('friday', {
     mode: readStorage(MODE_KEY, 'agent'),
     thinkMode: readStorage(THINK_KEY, 'fast'),
     modelId: readStorage(SELECTED_MODEL_KEY, ''),
+    workspaceId: readStorage(SELECTED_WORKSPACE_KEY, 'default'),
     pendingLaunches: {},
     streamingByTab: {},
     historySessions: loadCachedHistorySessions(),
@@ -66,6 +68,10 @@ export const useFridayStore = defineStore('friday', {
     setModelId(modelId) {
       this.modelId = modelId
       writeStorage(SELECTED_MODEL_KEY, modelId)
+    },
+    setWorkspaceId(workspaceId) {
+      this.workspaceId = workspaceId
+      writeStorage(SELECTED_WORKSPACE_KEY, workspaceId)
     },
     setPendingLaunch(tabId, payload) {
       const key = tabId || '_default'

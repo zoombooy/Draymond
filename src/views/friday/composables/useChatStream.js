@@ -313,7 +313,7 @@ function createChatStreamRuntime({ key, router, fridayStore, t }) {
     return merged;
   }
 
-  async function invokeChat(state, { mode, model, userMessage, attachments, thinkMode, kbName, kbCategoryId }) {
+  async function invokeChat(state, { mode, model, userMessage, attachments, thinkMode, kbName, kbCategoryId, folderPath }) {
     const enableThinking = thinkMode === 'deep';
     const args = toIpcPayload({
       requestId: state.activeRequestId,
@@ -323,9 +323,12 @@ function createChatStreamRuntime({ key, router, fridayStore, t }) {
       attachments: attachments || [],
       enableThinking,
       kbName: kbName || '',
-      kbCategoryId: kbCategoryId || ''
+      kbCategoryId: kbCategoryId || '',
+      folderPath: folderPath || ''
     });
-    if (mode === 'agent') {
+    // 创造模式、竞技模式均复用 Agent 运行时（工具/文件写入可用）；
+    // arena 的多模型并跑后续在此扩展，当前先以 Agent 通道承接。
+    if (mode === 'agent' || mode === 'create' || mode === 'arena') {
       return electronService.invoke('agent-invoke', args);
     }
     if (mode === 'chat') {
@@ -368,7 +371,8 @@ function createChatStreamRuntime({ key, router, fridayStore, t }) {
       attachments: data.attachments || [],
       thinkMode: data.thinkMode || fridayStore.thinkMode,
       kbName: data.kbName || '',
-      kbCategoryId: data.kbCategoryId || ''
+      kbCategoryId: data.kbCategoryId || '',
+      folderPath: data.folderPath || ''
     }).catch((err) => {
       console.error('Chat invoke error:', err);
       pushErrorMessage(state, `${hooks.t('friday.requestFailed')}${err?.message || hooks.t('friday.retryLater')}`);
@@ -380,7 +384,7 @@ function createChatStreamRuntime({ key, router, fridayStore, t }) {
     if (!state || !state.isStreaming || !state.activeRequestId) return;
     try {
       const mode = state.mode || 'chat';
-      const channel = mode === 'agent' ? 'agent-stop' : 'stop_chat';
+      const channel = (mode === 'agent' || mode === 'create' || mode === 'arena') ? 'agent-stop' : 'stop_chat';
       await electronService.invoke(channel, { requestId: state.activeRequestId });
     } catch (err) {
       console.error('Stop chat error:', err);
