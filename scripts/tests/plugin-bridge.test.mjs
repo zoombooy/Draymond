@@ -31,13 +31,15 @@ function makeHost(dir, extraBuiltins = []) {
 }
 
 // 每个用例结束后清理桥接注册，避免污染全局 registry 影响其他测试文件
-function cleanupBridged() {
-  for (const name of listToolNames()) {
-    if (name.startsWith('plugin__')) unregisterTool(name)
+// 桥接工具现在优先使用原名（如 demo_read），清理时按已知用例工具名处理。
+function cleanupBridged(names = ['demo_read', 'echo_text', 'once_tool', 'write_tool', 'read_tool']) {
+  for (const name of names) {
+    if (listToolNames().includes(name)) unregisterTool(name)
+    if (listToolNames().includes(`plugin__${name}`)) unregisterTool(`plugin__${name}`)
   }
 }
 
-test('syncPluginTools 把插件工具镜像注册为 plugin__ 前缀且跳过宿主内置工具', async () => {
+test('syncPluginTools 把插件工具镜像注册为原名且跳过宿主内置工具', async () => {
   const dir = tempDir()
   const spec = writePlugin(dir, 'demo.mjs', `
     export const name = 'demo'
@@ -61,15 +63,47 @@ test('syncPluginTools 把插件工具镜像注册为 plugin__ 前缀且跳过宿
   try {
     const count = await syncPluginTools(host)
     const names = listToolNames()
-    assert.ok(names.includes('plugin__demo_read'), '插件工具应被桥接注册')
-    assert.ok(!names.includes('plugin__mcp__o-hino__retrieve_knowledge'), '宿主内置工具应被跳过')
+    assert.ok(names.includes('demo_read'), '插件工具应以原名被桥接注册')
+    assert.ok(!names.includes('mcp__o-hino__retrieve_knowledge'), '宿主内置工具应被跳过')
     assert.equal(count, 1)
 
-    // 桥接工具要求审批（第三方不可信）
+    // 只读工具免审批，让 LLM 无需额外填写 riskAssessment 就可以调用
     const { buildInterruptConfig } = await import('../../src-electron/agent/tools/registry.js')
-    assert.equal(buildInterruptConfig()['plugin__demo_read'], true)
+    assert.notEqual(buildInterruptConfig()['demo_read'], true)
   } finally {
     cleanupBridged()
+  }
+})
+
+test('写操作插件工具仍要求审批，只读工具免审批', async () => {
+  const dir = tempDir()
+  const spec = writePlugin(dir, 'policy.mjs', `
+    export const name = 'policy'
+    export function apply(ctx) {
+      ctx.tools.register({
+        name: 'write_tool',
+        description: 'write file',
+        parameters: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+        execute: async () => 'ok'
+      })
+      ctx.tools.register({
+        name: 'read_tool',
+        description: 'read file',
+        parameters: { type: 'object' },
+        execute: async () => 'ok'
+      })
+    }
+  `)
+  const host = makeHost(dir, [spec])
+  await host.start()
+  try {
+    await syncPluginTools(host)
+    const { buildInterruptConfig } = await import('../../src-electron/agent/tools/registry.js')
+    const config = buildInterruptConfig()
+    assert.equal(config['write_tool'], true, '写操作必须审批')
+    assert.notEqual(config['read_tool'], true, '只读工具不应要求审批')
+  } finally {
+    cleanupBridged(['write_tool', 'read_tool'])
   }
 })
 
@@ -115,12 +149,12 @@ test('再次同步会先注销上一轮桥接工具，插件停用后不再出�
   await host.start()
   try {
     await syncPluginTools(host)
-    assert.ok(listToolNames().includes('plugin__once_tool'))
+    assert.ok(listToolNames().includes('once_tool'))
 
     // 卸载插件工具后再次同步，桥接工具应被清理
     host.tools.unregisterOwner(host.list().find(p => p.loaded).id)
     await syncPluginTools(host)
-    assert.ok(!listToolNames().includes('plugin__once_tool'), '停用的插件工具应被移除')
+    assert.ok(!listToolNames().includes('once_tool'), '停用的插件工具应被移除')
   } finally {
     cleanupBridged()
   }

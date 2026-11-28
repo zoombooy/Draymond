@@ -103,9 +103,11 @@ export async function createAgent(modelConfig, options = {}) {
   // 这样 LLM 能在对话里像调用内置工具一样选择它们。
   // 失败时降级为无插件，不影响 builtin 工具。
   let bridgedToolCount = 0
+  let bridgedToolNames = []
   try {
-    const { syncPluginTools } = await import('./pluginBridge.js')
-    bridgedToolCount = await syncPluginTools()
+    const bridge = await import('./pluginBridge.js')
+    bridgedToolCount = await bridge.syncPluginTools()
+    bridgedToolNames = bridge.getBridgedToolNames()
   } catch (error) {
     log.warn(`插件工具同步跳过: ${error.message}`)
   }
@@ -177,7 +179,9 @@ export async function createAgent(modelConfig, options = {}) {
         ? `## 外部 MCP 工具\n用户已连接 ${mcpTools.length} 个外部 MCP 工具（工具名以 \`mcp__\` 开头，格式为 \`mcp__服务器名__工具名\`）。这些工具来自用户添加的 MCP 服务器，可直接调用。调用前请阅读工具描述确认参数与用途。\n\n`
         : '') +
       (bridgedToolCount > 0
-        ? `## 用户插件工具\n用户安装了 ${bridgedToolCount} 个插件工具（工具名以 plugin__ 开头）。这些工具来自用户添加的插件包，调用前请阅读工具描述确认参数与用途；写操作时需要用户审批。\n\n`
+        ? '## 用户插件工具（优先使用）\n' +
+          `用户安装了 ${bridgedToolCount} 个插件工具：${bridgedToolNames.join('、')}。\n` +
+          '这些是用户为特定任务安装的专用能力。**当任务涉及读取/查看/检查 Office 文档（.docx/.xlsx）时，必须先使用对应的 office_* 插件工具，禁止用 python_repl 手工解压 XML 或 zip 代替**；只有在没有对应插件工具时才回退到通用工具。只读工具可直接调用，写操作会要求用户审批。\n\n'
         : '') +
       '## 文件存放约束（强制）\n' +
       `Agent 工作区根目录绝对路径：${rootDir}\n` +

@@ -30,6 +30,17 @@ const log = createLogger('PluginBridge')
 const BRIDGE_PREFIX = 'plugin__'
 const INTERNAL_TOOL_PREFIX = 'mcp__o-hino__'
 
+/**
+ * 明显的只读工具名模式：这些工具不改动应用数据，免审批。
+ * 写操作（write/replace/set/propose/open 等）仍保留审批。
+ */
+const READONLY_NAME_PATTERN =
+  /(^|[_])(read|check|get|list|selection|inspect|view|query|search|status|dump|describe)([_]|$)/i
+
+function isReadOnlyTool(name) {
+  return READONLY_NAME_PATTERN.test(name)
+}
+
 /** 已由本模块注册的工具名，用于增量清理（name -> signature） */
 let bridgedTools = new Map()
 
@@ -82,6 +93,11 @@ function jsonSchemaFieldToZod(field) {
   }
 }
 
+/** 返回当前已桥接的工具名，供系统提示词列出插件能力 */
+export function getBridgedToolNames() {
+  return Array.from(bridgedTools.keys())
+}
+
 /** 移除上一轮桥接注册的工具，保证插件启停即时生效 */
 async function removeBridgedTools() {
   if (bridgedTools.size === 0) return
@@ -111,14 +127,21 @@ export async function syncPluginTools(injectedHost) {
     })
 
     for (const def of defs) {
-      const bridgeName = `${BRIDGE_PREFIX}${def.name}`
+      // 优先用插件原生工具名（LLM 更好识别，如 office_docs_read）；
+      // 仅当与内置工具重名时才加 plugin__ 前缀规避冲突。
+      const nativeName = def.name
+      const bridgeName = existing.has(nativeName) ? `${BRIDGE_PREFIX}${nativeName}` : nativeName
       if (existing.has(bridgeName)) {
-        // 与内置工具同名的极端情况，跳过避免污染
+        // 前缀名也冲突，跳过避免污染内置工具
         continue
       }
       const full = host.tools?.get?.(def.name) || {}
-      const description = `${def.description || def.name}\n\n【来源】来自用户添加的插件。` +
-        '调用时参数必须与工具描述一致；该工具执行的是插件提供的能力。'
+      const needsApproval = !isReadOnlyTool(def.name)
+      const description = `${def.description || def.name}\n\n` +
+        '【使用场景】该工具来自用户安装的插件，是本类任务的首选工具。' +
+        '当用户明确要求读取、查看、检查 Office 文档（.docx/.xlsx）内容时，必须优先调用本工具，' +
+        '不要改用 python_repl 手工解析 XML/zip，也不要用其他工具替代。' +
+        '参数须严格按工具定义填写。'
 
       registerTool({
         name: bridgeName,
@@ -131,10 +154,10 @@ export async function syncPluginTools(injectedHost) {
           }
           return result.text || ''
         },
-        // 第三方插件不在项目可信边界内，写操作一律要求用户审批
-        meta: { requireApproval: true }
+        // 只读工具免审批；写/外部副作用工具要求用户审批
+        meta: { requireApproval: needsApproval }
       })
-      bridgedTools.set(bridgeName, true)
+      bridgedTools.set(bridgeName, { signature: true, needsApproval })
     }
 
     log.info(`插件桥接完成: ${bridgedTools.size} 个工具`)
