@@ -10,14 +10,19 @@ export const providerIcons = {
   deepseek: new URL('@/assets/images/deepseek.png', import.meta.url).href,
   kimi: new URL('@/assets/images/kimi-icon.png', import.meta.url).href,
   minimax: new URL('@/assets/images/MiniMax.png', import.meta.url).href,
+  openai: new URL('@/assets/images/OpenAI.svg', import.meta.url).href,
+  tongyi: new URL('@/assets/images/通义千问.svg', import.meta.url).href,
+  stepfun: new URL('@/assets/images/阶跃星辰.svg', import.meta.url).href,
+  siliconflow: new URL('@/assets/images/硅基流动.svg', import.meta.url).href,
+  xiaomi: new URL('@/assets/images/小米.svg', import.meta.url).href,
   other: new URL('@/assets/images/其他模型.png', import.meta.url).href
 };
 
 // 常见模型能力关键词表：按模型名（小写）匹配，命中即认为具备该能力。
 // 仅用于展示角标，不参与实际请求；真实能力以模型提供方为准。
 const CAPABILITY_KEYWORDS = {
-  vision: ['vision', 'vl', 'multimodal', '多模态', '4o', '4.1', 'gemini', 'gpt-4', 'claude', 'qvq', 'vl-max', '闪'],
-  reasoning: ['reasoning', 'reasoner', 'r1', 'qwq', 'o1', 'o3', 'thinking', '深度思考', 'math'],
+  vision: ['vision', 'vl', 'multimodal', '多模态', '4o', '4.1', 'gemini', 'gpt-4', 'claude', 'qvq', 'vl-max', '闪', 'omni', 'step-5', 'step-3.7', 'mimo-v2.6-pro', 'mimo-v2.5-omni'],
+  reasoning: ['reasoning', 'reasoner', 'r1', 'qwq', 'o1', 'o3', 'thinking', '深度思考', 'math', 'step-3.5', 'mimo', 'qvq'],
   tools: ['function', 'tool', 'agent', 'mcp', 'react', 'coder', 'code'],
   code: ['code', 'coder', 'coding', '代码']
 };
@@ -38,7 +43,9 @@ const CONTEXT_FAMILY_DEFAULTS = [
   { re: /qwen3|qwen-3/i, label: '128K' },
   { re: /kimi|minimax/i, label: '200K' },
   { re: /gpt-4o|gpt-4\.1|claude/i, label: '128K' },
-  { re: /glm-4/i, label: '128K' }
+  { re: /glm-4/i, label: '128K' },
+  { re: /step-5/i, label: '1M' },
+  { re: /mimo-v2/i, label: '1M' }
 ];
 
 export function inferContextLabel(modelName = '') {

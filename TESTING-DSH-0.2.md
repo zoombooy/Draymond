@@ -359,3 +359,14 @@ node --test scripts/tests/plugin-host.test.mjs \
 - i18n：zh-CN / en-US 补齐竞技文案。
 
 验证：单测 56/56；`vite build` 14.75s 成功；CDP + IPC mock 端到端实测——选中 2 个模型后仅发出 2 个独立 `chat_without_memory` 请求（requestId 各不相同），两张结果卡片均正确显示答案与不同耗时，完成后输入框恢复发送态、停止按钮消失，截图无重叠。
+
+### 新增五个模型厂商（2026-11-28）
+
+模型设置页的厂商下拉由 7 项扩展到 12 项，新增 OpenAI、通义千问、阶跃星辰、硅基流动、小米：
+
+- 图标：`src/assets/images/` 新增 5 个品牌色 SVG（从 `@lobehub/icons` 的 Mono 组件提取 path 并注入品牌色），同步到 `SettingsModel.vue` 的 `providerList` 与 friday/automation/knowledge 三处 `providerIcons` 映射。
+- API 地址：OpenAI `https://api.openai.com/v1`、通义千问 `https://dashscope.aliyuncs.com/compatible-mode/v1`、阶跃星辰 `https://api.stepfun.com/v1`、硅基流动 `https://api.siliconflow.cn/v1`、小米 `https://api.xiaomimimo.com/v1`（均来自官方文档）。
+- 后端：`modelCatalog.js` 的 `PROVIDER_BASE_URLS` 同步新增，五个厂商都支持自动拉取 `/models` 列表。
+- 思考参数：`modelAdapter.js` 中通义千问用 `enable_thinking`、阶跃星辰用 `reasoning_effort: high`、小米用 `enable_thinking: true`。
+- 能力推断：`constants.js` 增加 step-5/mimo/omni 等关键词与上下文默认值（step-5、mimo-v2 为 1M）。
+- 验证：SVG XML 解析通过；语法检查、单测 56/56、`vite build` 20.57s 成功；CDP 实测下拉 12 项齐全、5 个新 SVG 图标 `loaded: true`，滚动到底部截图确认五个 logo 视觉正常无破图。

@@ -472,6 +472,11 @@ const providerList = [
   { value: 'deepseek', label: 'DeepSeek', icon: new URL('@/assets/images/deepseek.png', import.meta.url).href, baseUrl: 'https://api.deepseek.com' },
   { value: 'kimi', label: 'Kimi', icon: new URL('@/assets/images/kimi-icon.png', import.meta.url).href, baseUrl: 'https://api.moonshot.cn/v1' },
   { value: 'minimax', label: 'MiniMax', icon: new URL('@/assets/images/MiniMax.png', import.meta.url).href, baseUrl: 'https://api.minimaxi.com/v1' },
+  { value: 'openai', label: 'OpenAI', icon: new URL('@/assets/images/OpenAI.svg', import.meta.url).href, baseUrl: 'https://api.openai.com/v1' },
+  { value: 'tongyi', label: '通义千问', icon: new URL('@/assets/images/通义千问.svg', import.meta.url).href, baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
+  { value: 'stepfun', label: '阶跃星辰', icon: new URL('@/assets/images/阶跃星辰.svg', import.meta.url).href, baseUrl: 'https://api.stepfun.com/v1' },
+  { value: 'siliconflow', label: '硅基流动', icon: new URL('@/assets/images/硅基流动.svg', import.meta.url).href, baseUrl: 'https://api.siliconflow.cn/v1' },
+  { value: 'xiaomi', label: '小米', icon: new URL('@/assets/images/小米.svg', import.meta.url).href, baseUrl: 'https://api.xiaomimimo.com/v1' },
   { value: 'other', label: '其他', icon: new URL('@/assets/images/其他模型.png', import.meta.url).href, baseUrl: '' }
 ];
 

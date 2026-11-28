@@ -4,7 +4,12 @@ const PROVIDER_BASE_URLS = {
   zhipu: 'https://open.bigmodel.cn/api/paas/v4',
   deepseek: 'https://api.deepseek.com',
   kimi: 'https://api.moonshot.cn/v1',
-  minimax: 'https://api.minimaxi.com/v1'
+  minimax: 'https://api.minimaxi.com/v1',
+  openai: 'https://api.openai.com/v1',
+  tongyi: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+  stepfun: 'https://api.stepfun.com/v1',
+  siliconflow: 'https://api.siliconflow.cn/v1',
+  xiaomi: 'https://api.xiaomimimo.com/v1'
 }
 
 /**

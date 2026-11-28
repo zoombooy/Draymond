@@ -125,6 +125,7 @@ export function createLangChainModel(modelConfig) {
 function buildThinkingKwargs(provider, enableThinking) {
   switch (provider) {
     case 'qwen':
+    case 'tongyi':
       return { enable_thinking: !!enableThinking }
     case 'minimax':
       return enableThinking ? { reasoning_split: true } : {}
@@ -133,6 +134,12 @@ function buildThinkingKwargs(provider, enableThinking) {
     case 'kimi':
     case 'doubao':
       return { thinking: { type: enableThinking ? 'enabled' : 'disabled' } }
+    case 'stepfun':
+      // 阶跃星辰通过 reasoning_effort 控制推理强度
+      return enableThinking ? { reasoning_effort: 'high' } : {}
+    case 'xiaomi':
+      // 小米 MiMo 在思考模式下返回 reasoning_content
+      return enableThinking ? { enable_thinking: true } : {}
     default:
       return {}
   }

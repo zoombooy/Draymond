@@ -314,6 +314,11 @@ const providerIcons = {
   deepseek: new URL('@/assets/images/deepseek.png', import.meta.url).href,
   kimi: new URL('@/assets/images/kimi-icon.png', import.meta.url).href,
   minimax: new URL('@/assets/images/MiniMax.png', import.meta.url).href,
+  openai: new URL('@/assets/images/OpenAI.svg', import.meta.url).href,
+  tongyi: new URL('@/assets/images/通义千问.svg', import.meta.url).href,
+  stepfun: new URL('@/assets/images/阶跃星辰.svg', import.meta.url).href,
+  siliconflow: new URL('@/assets/images/硅基流动.svg', import.meta.url).href,
+  xiaomi: new URL('@/assets/images/小米.svg', import.meta.url).href,
   other: new URL('@/assets/images/其他模型.png', import.meta.url).href
 };
 
