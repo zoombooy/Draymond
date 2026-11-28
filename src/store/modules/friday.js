@@ -5,6 +5,7 @@ const THINK_KEY = 'o-hino-think-mode'
 const SELECTED_MODEL_KEY = 'o-hino-selected-model'
 const SELECTED_WORKSPACE_KEY = 'o-hino-selected-workspace'
 const ARENA_MODELS_KEY = 'o-hino-arena-models'
+const CREATE_TARGET_KEY = 'o-hino-create-target'
 const HISTORY_WIDTH_KEY = 'o-hino-history-sidebar-width'
 const HISTORY_SESSIONS_KEY = 'o-hino-history-sessions'
 const DEFAULT_HISTORY_WIDTH = 240
@@ -21,6 +22,19 @@ function writeStorage(key, value) {
   try {
     localStorage.setItem(key, value)
   } catch {}
+}
+
+function loadCreateTarget() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CREATE_TARGET_KEY) || '{}')
+    const value = typeof parsed.value === 'string' ? parsed.value : 'auto'
+    return {
+      value: ['auto', 'skill', 'tool', 'plugin', 'other'].includes(value) ? value : 'auto',
+      manual: !!parsed.manual
+    }
+  } catch {
+    return { value: 'auto', manual: false }
+  }
 }
 
 function loadHistorySidebarWidth() {
@@ -49,6 +63,7 @@ function clonePlain(value) {
 export const useFridayStore = defineStore('friday', {
   state: () => ({
     mode: readStorage(MODE_KEY, 'agent'),
+    createTarget: loadCreateTarget(),
     thinkMode: readStorage(THINK_KEY, 'fast'),
     modelId: readStorage(SELECTED_MODEL_KEY, ''),
     workspaceId: (() => {
@@ -72,6 +87,12 @@ export const useFridayStore = defineStore('friday', {
     setMode(mode) {
       this.mode = mode
       writeStorage(MODE_KEY, mode)
+    },
+    setCreateTarget(value, manual = true) {
+      const allowed = ['auto', 'skill', 'tool', 'plugin', 'other']
+      const normalized = allowed.includes(value) ? value : 'auto'
+      this.createTarget = { value: normalized, manual: !!manual }
+      writeStorage(CREATE_TARGET_KEY, JSON.stringify(this.createTarget))
     },
     setThinkMode(thinkMode) {
       this.thinkMode = thinkMode

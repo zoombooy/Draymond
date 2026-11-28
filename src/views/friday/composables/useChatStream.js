@@ -317,7 +317,7 @@ function createChatStreamRuntime({ key, router, fridayStore, t }) {
     return merged;
   }
 
-  async function invokeChat(state, { mode, model, userMessage, attachments, thinkMode, kbName, kbCategoryId, folderPath, channel }) {
+  async function invokeChat(state, { mode, createTarget, model, userMessage, attachments, thinkMode, kbName, kbCategoryId, folderPath, channel }) {
     const enableThinking = thinkMode === 'deep';
     const args = toIpcPayload({
       requestId: state.activeRequestId,
@@ -326,6 +326,7 @@ function createChatStreamRuntime({ key, router, fridayStore, t }) {
       message: userMessage,
       attachments: attachments || [],
       enableThinking,
+      createTarget: createTarget || '',
       kbName: kbName || '',
       kbCategoryId: kbCategoryId || '',
       folderPath: folderPath || ''
@@ -541,6 +542,7 @@ function createChatStreamRuntime({ key, router, fridayStore, t }) {
 
     invokeChat(state, {
       mode,
+      createTarget: mode === 'create' ? (data.createTarget || '') : '',
       model,
       userMessage,
       attachments: data.attachments || [],

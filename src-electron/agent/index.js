@@ -58,10 +58,11 @@ export function getCheckpointer() {
  * @param {Object} modelConfig 项目模型配置（provider/baseUrl/apiKey/modelName/enableThinking）
  * @param {Object} [options] 额外选项
  * @param {string} [options.folderPath] 用户当前所在的工作区虚拟路径（相对于 Agent 根目录）
+ * @param {string} [options.createTarget] 创造模式目标：skill/tool/plugin/other/auto
  * @returns {Promise<Object>} DeepAgent 实例
  */
 export async function createAgent(modelConfig, options = {}) {
-  const { folderPath = '', unattended = false } = options
+  const { folderPath = '', unattended = false, createTarget = '' } = options
   log.info('====== 开始创建 DeepAgent ======')
   if (folderPath) {
     log.info(`用户当前工作目录（虚拟路径）: ${folderPath}`)
@@ -219,11 +220,47 @@ export async function createAgent(modelConfig, options = {}) {
       '**更新规则**：当你在对话中学到新的用户偏好、重要事实或经验时，应立即用 `edit_file` 更新对应记忆文件' +
       '（以当前内容片段作为 `old_string`，新内容作为 `new_string`）。更新会立即落盘并在下次对话生效。' +
       '更新应精炼、去重，避免冗长。\n' +
-      '注意：`write_file` 无法覆盖已存在的文件，修改记忆文件请务必使用 `edit_file`。\n'
+      '注意：`write_file` 无法覆盖已存在的文件，修改记忆文件请务必使用 `edit_file`。\n' +
+      buildCreateTargetPrompt(createTarget)
   })
 
   log.info('====== DeepAgent 创建完成 ======')
   return { agent, toolCtx, rootDir }
+}
+
+/**
+ * 根据创造模式的目标生成追加提示词。
+ * 只在 createTarget 有值时注入；不同目标给出明确的产出格式与落地路径，
+ * 避免模型在工具/插件这类当前无法自动生效的目标上给出无效承诺。
+ */
+function buildCreateTargetPrompt(createTarget) {
+  if (!createTarget || createTarget === 'auto') return ''
+  const common = '\n\n## 本次创造目标（用户已指定）\n'
+  const guides = {
+    skill:
+      '用户希望创建一个 Skill。请按以下要求执行：\n' +
+      '- 优先调用 `skill-creator` 技能（位于 `/SKILL/skill-creator/`）来设计、编写与验证。\n' +
+      '- 每个技能是一个独立子目录 `/SKILL/<技能名>/`，目录内含 `SKILL.md`，可选 references/scripts/assets 子目录。\n' +
+      '- `SKILL.md` 必须包含 YAML front matter（name、description），description 要写清触发场景。\n' +
+      '- 写入 `/SKILL/<技能名>/` 后会在下次对话自动加载，请在结论中明确告知用户这一点。\n',
+    tool:
+      '用户希望创建一个工具（Tool）。请按以下要求执行：\n' +
+      '- 先说明当前应用的工具是 JS 源码，注册在 `src-electron/agent/tools/registry.js` 与 `tools/builtin/`，需要改源码并重启应用才能生效。\n' +
+      '- 不要声称写入 `/SKILL/` 或 `/SANDBOX/` 就能变成可调用工具；那只会产生草稿。\n' +
+      '- 在 `/SANDBOX/` 下产出完整草稿：工具实现代码、参数校验、风险等级（是否需要审批）、在 registry 中的注册片段、以及一段给开发者的集成说明。\n' +
+      '- 结论中列出用户/开发者还需完成的手动步骤。\n',
+    plugin:
+      '用户希望创建一个插件（Plugin）。请按以下要求执行：\n' +
+      '- 先说明插件需在应用插件页安装（第三方 tgz bundle）后才会出现在对话工具集。\n' +
+      '- 在 `/SANDBOX/` 下产出插件包骨架：package.json、manifest（工具名、参数 schema、只读/写操作标记）、工具实现、README 安装说明。\n' +
+      '- 不要声称写入 `/SKILL/` 或 `/SANDBOX/` 就能直接生效，必须提示用户在插件页手动安装。\n',
+    other:
+      '用户希望创造一个未指定类型的产物（文档、脚本、数据文件等）。\n' +
+      '- 先确认产物的格式与用途，再到 `/SANDBOX/` 下按任务建子目录存放。\n' +
+      '- 若产物其实更适合做成 Skill / Tool / Plugin，请提示用户可以切换对应创建目标重做。\n'
+  }
+  const guide = guides[createTarget]
+  return guide ? common + guide : ''
 }
 
 /**
@@ -237,6 +274,7 @@ export async function createAgent(modelConfig, options = {}) {
 export async function createAgentWithContext(modelConfig, runtimeCtx) {
   const { agent, toolCtx, rootDir } = await createAgent(modelConfig, {
     folderPath: runtimeCtx?.folderPath || '',
+    createTarget: runtimeCtx?.createTarget || '',
     unattended: !!runtimeCtx?.unattended
   })
 

@@ -82,9 +82,9 @@ export function registerAgentCommands(mainWindow) {
 
   // ========== agent-invoke: 发起 Agent 调用 ==========
   ipcMain.handle('agent-invoke', async (_event, args) => {
-    const { requestId, sessionId, model, message, enableThinking, attachments, folderPath } = args
+    const { requestId, sessionId, model, message, enableThinking, attachments, folderPath, createTarget } = args
     log.info(`====== agent-invoke 开始: requestId=${requestId} ======`)
-    log.info(`model=${model?.modelName}, enableThinking=${!!enableThinking}, sessionId=${sessionId || '(new)'}, folderPath=${folderPath || '(none)'}`)
+    log.info(`model=${model?.modelName}, enableThinking=${!!enableThinking}, sessionId=${sessionId || '(new)'}, folderPath=${folderPath || '(none)'}, createTarget=${createTarget || '(none)'}`)
 
     let currentSessionId = sessionId
     let isNewSession = false
@@ -145,7 +145,8 @@ export function registerAgentCommands(mainWindow) {
         requestId,
         threadId: currentSessionId,
         dataDir: getDataDir(),
-        folderPath: folderPath || ''
+        folderPath: folderPath || '',
+        createTarget: createTarget || ''
       }
       const { agent, rootDir } = await createAgentWithContext(modelConfig, runtimeCtx)
       log.info(`Agent 创建完成, rootDir=${rootDir}`)

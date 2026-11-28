@@ -21,6 +21,21 @@
           <polyline points="6 9 12 15 18 9"></polyline>
         </svg>
       </button>
+      <button
+        v-if="isCreateMode"
+        class="context-btn create-target-btn"
+        type="button"
+        @click.stop="toggleDropdown('createTarget', $event)"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2l2.4 5.3 5.6.6-4.2 3.8 1.2 5.5L12 15.3 7 18.2l1.2-5.5L4 8.9l5.6-.6z"></path>
+        </svg>
+        <span>{{ t(`friday.${effectiveTargetMeta.i18n}`) }}</span>
+        <span v-if="!fridayStore.createTarget.manual && recommendedTarget.hits.length" class="rec-tag">{{ t('friday.createTargetRecommended') }}</span>
+        <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
     </div>
 
     <ChatInputBox
@@ -136,6 +151,41 @@
             @click="selectMode(mode.value)"
           >
             {{ t(`friday.${mode.i18n}`) }}
+          </div>
+        </div>
+      </div>
+
+      <!-- 创建目标下拉 -->
+      <div v-if="showCreateTargetDropdown" class="dropdown-overlay" :style="createTargetDropdownStyle" @click.stop>
+        <div class="dropdown-panel create-target-dropdown">
+          <div class="create-target-hint">{{ t('friday.createTargetSelectHint') }}</div>
+          <div
+            v-if="!fridayStore.createTarget.manual && recommendedTarget.hits.length"
+            class="create-target-recommend"
+          >
+            <span class="rec-tag">{{ t('friday.createTargetRecommended') }}</span>
+            {{ t('friday.createTargetReason') }}：
+            <span class="rec-hits">{{ recommendedTarget.hits.join('、') }}</span>
+          </div>
+          <div
+            v-for="target in createTargets"
+            :key="target.value"
+            class="dropdown-item create-target-item"
+            :class="{
+              active: effectiveCreateTarget === target.value,
+              recommended: !fridayStore.createTarget.manual && recommendedTarget.value === target.value && target.value !== 'auto'
+            }"
+            @click="selectCreateTarget(target.value)"
+          >
+            <svg class="create-target-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" v-html="target.icon"></svg>
+            <div class="create-target-text">
+              <div class="create-target-name">
+                {{ t(`friday.${target.i18n}`) }}
+                <span v-if="!fridayStore.createTarget.manual && recommendedTarget.value === target.value && target.value !== 'auto'" class="rec-tag">{{ t('friday.createTargetRecommended') }}</span>
+              </div>
+              <div class="create-target-desc">{{ t(`friday.${target.descI18n}`) }}</div>
+            </div>
+            <svg v-if="effectiveCreateTarget === target.value" class="item-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
         </div>
       </div>
@@ -302,7 +352,7 @@ import { useKnowledgeBaseList } from '@/views/friday/composables/useKnowledgeBas
 import { useModelCatalog } from '@/views/friday/composables/useModelCatalog';
 import { useWorkspaces } from '@/views/friday/composables/useWorkspaces';
 import { refreshHistorySessions } from '@/views/friday/composables/useConversationHistory';
-import { CHAT_MODES, providerIcons } from '@/views/friday/constants';
+import { CHAT_MODES, CREATE_TARGETS, providerIcons, recommendCreateTarget } from '@/views/friday/constants';
 import { electronService } from '@/services/electron';
 
 const props = defineProps({
@@ -345,10 +395,12 @@ let attachmentIdCounter = 0;
 const showNoteDialog = ref(false);
 const showKbFileDialog = ref(false);
 const showModeDropdown = ref(false);
+const showCreateTargetDropdown = ref(false);
 const showModelDropdown = ref(false);
 const showWorkspaceDropdown = ref(false);
 const showPlusDropdown = ref(false);
 const modeDropdownStyle = ref({});
+const createTargetDropdownStyle = ref({});
 const modelDropdownStyle = ref({});
 const workspaceDropdownStyle = ref({});
 const plusDropdownStyle = ref({});
@@ -362,6 +414,18 @@ const skillList = ref([]);
 const mcpList = ref([]);
 
 const chatModes = computed(() => CHAT_MODES);
+const createTargets = computed(() => CREATE_TARGETS);
+const isCreateMode = computed(() => fridayStore.mode === 'create');
+
+// 根据当前输入推荐的创建目标；手动选择后不再覆盖。
+const recommendedTarget = computed(() => recommendCreateTarget(inputText.value));
+const effectiveCreateTarget = computed(() => {
+  if (fridayStore.createTarget.manual) return fridayStore.createTarget.value;
+  return recommendedTarget.value.value;
+});
+const effectiveTargetMeta = computed(() => (
+  CREATE_TARGETS.find(item => item.value === effectiveCreateTarget.value) || CREATE_TARGETS[0]
+));
 
 const currentModeLabel = computed(() => {
   const mode = CHAT_MODES.find(item => item.value === fridayStore.mode);
@@ -434,6 +498,7 @@ function closeAllDropdowns() {
   showModelDropdown.value = false;
   showWorkspaceDropdown.value = false;
   showPlusDropdown.value = false;
+  showCreateTargetDropdown.value = false;
   showHistorySub.value = false;
   workspaceSearch.value = '';
   activeSub.value = null;
@@ -442,6 +507,7 @@ function closeAllDropdowns() {
 function toggleDropdown(name, event) {
   const refs = {
     mode: [showModeDropdown, modeDropdownStyle],
+    createTarget: [showCreateTargetDropdown, createTargetDropdownStyle],
     model: [showModelDropdown, modelDropdownStyle],
     workspace: [showWorkspaceDropdown, workspaceDropdownStyle],
     plus: [showPlusDropdown, plusDropdownStyle]
@@ -478,6 +544,11 @@ function toggleDropdown(name, event) {
 function selectMode(mode) {
   fridayStore.setMode(mode);
   showModeDropdown.value = false;
+}
+
+function selectCreateTarget(value) {
+  fridayStore.setCreateTarget(value, true);
+  showCreateTargetDropdown.value = false;
 }
 
 function selectModel(modelId) {
@@ -685,6 +756,7 @@ function handleSend() {
     kbName: kbAttachment?.name || '',
     kbCategoryId: kbAttachment?.categoryId || '',
     mode: fridayStore.mode,
+    createTarget: isCreateMode.value ? effectiveCreateTarget.value : '',
     modelId: fridayStore.modelId,
     thinkMode: fridayStore.thinkMode,
     workspaceId: workspace?.id || 'none',
@@ -992,6 +1064,85 @@ onDeactivated(closeAllDropdowns);
 .mode-dropdown {
   min-width: 150px;
   padding: 6px;
+}
+
+/* ---------- 创建目标下拉 ---------- */
+.create-target-btn .rec-tag,
+.create-target-name .rec-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.14);
+  color: #059669;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.create-target-dropdown {
+  min-width: 280px;
+  max-width: 340px;
+  padding: 8px;
+}
+
+.create-target-hint {
+  padding: 6px 10px 8px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.create-target-recommend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0 4px 6px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: rgba(16, 185, 129, 0.08);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.create-target-recommend .rec-hits {
+  color: #059669;
+  font-weight: 500;
+}
+
+.create-target-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+}
+
+.create-target-item.recommended {
+  background: rgba(16, 185, 129, 0.06);
+}
+
+.create-target-icon {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.create-target-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.create-target-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.create-target-desc {
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  line-height: 1.4;
 }
 
 /* ---------- 加号菜单 ---------- */

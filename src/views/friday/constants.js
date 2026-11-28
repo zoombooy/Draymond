@@ -81,3 +81,60 @@ export const CHAT_MODES = [
   { value: 'create', i18n: 'modeCreate' },
   { value: 'arena', i18n: 'modeArena' }
 ];
+
+// 创造模式的产出目标。keywords 用于根据用户输入推荐目标，命中词会展示给用户说明推荐依据。
+// auto 表示不预设目标，由 Agent 根据对话自行判断；other 覆盖未归入前三类的创造任务。
+export const CREATE_TARGETS = [
+  {
+    value: 'auto',
+    i18n: 'createTargetAuto',
+    descI18n: 'createTargetAutoDesc',
+    icon: '<circle cx="12" cy="12" r="9"></circle><path d="M12 8v8M8 12h8"></path>',
+    keywords: []
+  },
+  {
+    value: 'skill',
+    i18n: 'createTargetSkill',
+    descI18n: 'createTargetSkillDesc',
+    icon: '<path d="M12 3l2.4 5.3 5.6.6-4.2 3.8 1.2 5.5L12 15.3 7 18.2l1.2-5.5L4 8.9l5.6-.6z"></path>',
+    keywords: ['技能', 'skill', '工作流', '工作流程', '流程', '方法论', 'sop', '提示词模板', 'prompt', '经验沉淀', '沉淀', '复用', '可复用', '套路', '最佳实践']
+  },
+  {
+    value: 'tool',
+    i18n: 'createTargetTool',
+    descI18n: 'createTargetToolDesc',
+    icon: '<path d="M14.7 6.3a5 5 0 0 0-6.4 6.4L3 18l3 3 5.3-5.3a5 5 0 0 0 6.4-6.4l-3 3-3-3z"></path>',
+    keywords: ['工具', 'tool', '函数', 'function', '工具函数', '封装', '脚本', 'script', 'api', '接口', '调用', '命令行', 'cli', '自动化']
+  },
+  {
+    value: 'plugin',
+    i18n: 'createTargetPlugin',
+    descI18n: 'createTargetPluginDesc',
+    icon: '<path d="M12 2v6M12 16v6M2 12h6M16 12h6"></path><rect x="8" y="8" width="8" height="8" rx="1"></rect>',
+    keywords: ['插件', 'plugin', '扩展', 'extension', '接入', '集成', 'mcp', '第三方', 'bundle', 'tgz', '安装到', '应用市场']
+  },
+  {
+    value: 'other',
+    i18n: 'createTargetOther',
+    descI18n: 'createTargetOtherDesc',
+    icon: '<circle cx="12" cy="12" r="9"></circle><path d="M9.5 9a2.5 2.5 0 1 1 4.5 1.5c-.8 1-2 1.5-2 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line>',
+    keywords: []
+  }
+];
+
+// 根据用户输入推荐创造目标：按命中关键词加权取最高分，无命中时归为 other。
+// 返回结果包含命中的词，供 UI 展示推荐依据。
+export function recommendCreateTarget(text = '') {
+  const lower = String(text || '').toLowerCase();
+  if (!lower.trim()) return { value: 'auto', hits: [] };
+  let best = null;
+  for (const target of CREATE_TARGETS) {
+    if (!target.keywords || target.keywords.length === 0) continue;
+    const hits = target.keywords.filter(word => lower.includes(String(word).toLowerCase()));
+    if (hits.length === 0) continue;
+    const score = hits.reduce((sum, word) => sum + (String(word).length > 2 ? 2 : 1), 0);
+    if (!best || score > best.score) best = { value: target.value, score, hits };
+  }
+  if (!best) return { value: 'other', hits: [] };
+  return { value: best.value, hits: best.hits };
+}
